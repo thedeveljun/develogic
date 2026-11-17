@@ -16,13 +16,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from . import schedule as sched
 from . import lawdata
 from . import rental as rentalmod
+from . import operating as opmod
 
 D = Decimal
 ZERO = D(0)
 NATIONAL_HOUSING_SQM = D(85)    # 국민주택규모(전용 85㎡) — 초과분은 건물분 부가세 과세
 
 UnitKind = Literal['apartment', 'officetel', 'retail', 'office', 'knowledge', 'datacenter', 'other']   # 공동주택·오피스텔·상가근생·업무·지식산업센터·데이터센터·기타
-Category = Literal['land', 'construction', 'indirect', 'charges', 'sales', 'taxes', 'admin', 'contingency']
+Category = Literal['land', 'construction', 'indirect', 'charges', 'sales', 'taxes', 'admin', 'contingency', 'finance']
 Basis = Literal[
     'fixed',             # 정액 (원)
     'per_land_py',       # 대지 평당 (원/평)
@@ -31,10 +32,13 @@ Basis = Literal[
     'per_gfa_py',        # 전체 연면적 평당
     'per_supply_py',     # 분양(공급)면적 평당
     'per_unit',          # 세대(호)당 — 주거(아파트·오피스텔) 세대수
+    'per_room',          # 호텔 객실당 (운영형: operating.hotel.rooms)
     'monthly',           # 월 금액 × 사업기간
     'pct_land',          # 토지비(정액·평당 항목 합계) 대비 %
+    'pct_land_purchase', # 토지 매입대금(이름에 매입·토지대금 등)만 대비 % (지주작업비·중개수수료 등)
     'pct_construction',  # 공사비(정액·평당 항목 합계) 대비 %
     'pct_sales',         # 분양대금(VAT 포함, 분양률 반영, 발코니 포함) 대비 %
+    'pct_sales_net',     # 매출액(부가세 제외, 분양률 반영, 발코니 포함) 대비 % — 시행사 수지표의 '매출액의 ○%'
     'pct_apt_sales',     # 공동주택 분양대금 대비 % (학교용지부담금 등)
     'pct_total',         # 위 항목 전체 합계 대비 % (예비비)
     'pct_direct',        # 직접공사비(연면적 평당 공사비 항목) 대비 %
@@ -42,15 +46,18 @@ Basis = Literal[
     'pct_general_sales', # 일반분양대금 대비 % (분양대행 등, 조합원분 제외)
     'auto_school', 'auto_metro', 'auto_sewer', 'auto_water',          # 법정 자동: 부담금 (app/levies.py)
     'auto_preservation', 'auto_land_tax', 'auto_holding',            # 법정 자동: 제세공과금
+    'auto_housing_bond', 'auto_art', 'auto_dev_charge',              # 법정 자동: 국민주택채권 할인 · 미술작품 설치 · 개발부담금
 ]
-PCT_BASES = {'pct_land', 'pct_construction', 'pct_sales', 'pct_apt_sales', 'pct_total', 'pct_direct', 'pct_construction_total',
+PCT_BASES = {'pct_land', 'pct_land_purchase', 'pct_construction', 'pct_sales', 'pct_sales_net', 'pct_apt_sales', 'pct_total', 'pct_direct', 'pct_construction_total',
              'pct_general_sales'}
 DIRECT_BASES = {'per_above_py', 'per_below_py', 'per_gfa_py'}
 
 CATEGORY_NAMES = {
     'land': '토지비', 'construction': '공사비', 'indirect': '설계·감리·용역비', 'charges': '부담금·인입비',
     'sales': '분양·판매비', 'taxes': '제세공과금', 'admin': '일반관리비', 'contingency': '예비비',
+    'finance': '금융비용',   # 사업비 항목 중 금융 관련(PF 수수료·신탁·지주작업비 등) — 대출 이자와 함께 '금융비용'에 표시
 }
+KIND_BASES = {'pct_sales', 'pct_sales_net', 'pct_general_sales', 'per_supply_py', 'per_unit'}   # 적용 용도(applies_to)로 대상 한정 가능
 
 
 class UnitType(BaseModel):
@@ -74,9 +81,37 @@ class CostItem(BaseModel):
     category: Category
     name: str = Field(min_length=1)
     basis: Basis = 'fixed'
-    value: Decimal = Field(ge=0, description='금액(원) 또는 비율(%)')
+    value: Decimal = Field(description='금액(원) 또는 비율(%) — 음수는 정액 항목만 (토지 선납할인 등 차감)')
     note: str = ''
     timing: sched.Timing = 'auto'
+    months: int | None = Field(default=None, ge=0, le=240, description='월 금액 기준의 개월 수 (비우면 총 사업기간)')
+    applies_to: list[UnitKind] = Field(default_factory=list, description='적용 용도 (비우면 전체) — 분양대금·공급면적·세대당 기준을 해당 용도만으로 계산 (예: 분양수수료 상가 7%·오피스텔 5%)')
+
+
+    @model_validator(mode='after')
+    def _neg(self):
+        if self.value < 0 and self.basis != 'fixed':
+            raise ValueError(f'{self.name}: 음수 금액은 정액 항목에만 입력할 수 있습니다')
+        return self
+
+
+class HoldingTax(BaseModel):
+    """토지 보유세(재산세·종부세) 자동 산정 설정 — auto_holding."""
+    mode: Literal['separate', 'special', 'general'] = Field(
+        default='separate', description='분리과세(주택건설사업 승인 토지 0.2%) / 별도합산(상업·업무용 건축 부지) / 종합합산(나대지)')
+    base: Literal['official', 'purchase'] = Field(default='official', description='과세 기준: 개별공시지가 / 토지 매입가(공시지가 미입력 시 대용)')
+    years: int | None = Field(default=None, ge=0, le=20, description='과세 연수 (비우면 토지 잔금~입주 기간으로 계산)')
+    fair_ratio_pct: Decimal = Field(default=D(70), ge=0, le=100, description='재산세 공정시장가액비율 (토지 70%)')
+    comprehensive: bool = Field(default=True, description='종합부동산세 포함 (별도합산 80억·종합합산 5억 초과분)')
+
+
+class DevCharge(BaseModel):
+    """개발부담금 입력 (auto_dev_charge) — 감정평가·공시지가 기준 사업지 전체 지가(원)."""
+    start_value: Decimal = Field(default=ZERO, ge=0, description='개시시점지가 (원)')
+    end_value: Decimal = Field(default=ZERO, ge=0, description='종료시점지가 (원)')
+    normal_rise_pct: Decimal = Field(default=ZERO, ge=0, le=500, description='정상지가상승률 (개시~종료 누계, %) — 지가변동률·정기예금이자율 중 높은 것')
+    donation_value: Decimal = Field(default=ZERO, ge=0, description='기부채납액 (개발비용에 가산)')
+    rate_pct: Decimal = Field(default=D(25), ge=0, le=50, description='부과율 (법 제13조: 지목변경 등 25%, 택지·도시개발 등 20%)')
 
 
 class LoanTranche(BaseModel):
@@ -267,7 +302,7 @@ class PriorAssets(BaseModel):
 class Proforma(BaseModel):
     project_name: str = '신규 사업'
     template_key: str = Field(default='', max_length=40, description='시작한 용도 템플릿 (법정 기준 초기화에 사용)')
-    project_mode: Literal['developer', 'redevelopment', 'rental'] = 'developer'
+    project_mode: Literal['developer', 'redevelopment', 'rental', 'operating'] = 'developer'
     prior_assets: PriorAssets = Field(default_factory=PriorAssets)
     duration_months: int = Field(default=48, ge=1, le=240)
     land_area_sqm: Decimal = Field(gt=0)
@@ -292,6 +327,11 @@ class Proforma(BaseModel):
     criteria: Criteria = Field(default_factory=Criteria)
     hug: HugGuarantee = Field(default_factory=HugGuarantee)
     rental: rentalmod.RentalPlan = Field(default_factory=rentalmod.RentalPlan)
+    operating: opmod.OperatingPlan = Field(default_factory=opmod.OperatingPlan)
+    knowledge_relief_pct: Decimal = Field(default=ZERO, ge=0, le=100,
+                                          description='지식산업센터 설립자 취득세 감면율 (지방세특례제한법 제58조의2 — 시기별 50%·35%, 일몰 확인)')
+    holding: HoldingTax = Field(default_factory=HoldingTax)
+    dev_charge: DevCharge = Field(default_factory=DevCharge)
 
     @model_validator(mode='after')
     def _check(self):
@@ -346,7 +386,8 @@ def _revenue(p: Proforma, sales_rate: Decimal, price_adj: Decimal):
                      'exclusive_sqm': float(u.exclusive_sqm), 'supply_sqm': float(u.supply_sqm),
                      'supply_py_total': float(py(u.supply_sqm) * u.count),
                      'unit_price': won(py(u.supply_sqm) * u.price_per_py * adj),
-                     'cash': won(u_cash), 'vat': won(u_vat), 'net': won(u_net)})
+                     'cash': won(u_cash), 'vat': won(u_vat), 'net': won(u_net),
+                     '_cash': u_cash, '_net': u_net})
         cash += u_cash; net += u_net; vat += u_vat
         if u.kind == 'apartment':
             apt_cash += u_cash
@@ -364,6 +405,8 @@ def _revenue(p: Proforma, sales_rate: Decimal, price_adj: Decimal):
         'total_vat': vat + bal_vat,
         'total_net': net + bal_cash - bal_vat + p.other_income,
         'pct_sales_base': total_cash,
+        'pct_sales_net_base': net + bal_cash - bal_vat,
+        'balcony_net_d': bal_cash - bal_vat,
         'general_cash': gen_cash,
         'sales_rate': sold,
     }
@@ -377,20 +420,39 @@ def _costs(p: Proforma, rev: dict):
     first = {
         'fixed': D(1), 'per_land_py': land_py, 'per_above_py': above_py, 'per_below_py': below_py,
         'per_gfa_py': above_py + below_py, 'per_supply_py': supply_py, 'per_unit': D(res_units),
-        'monthly': D(p.duration_months),
+        'monthly': D(p.duration_months), 'per_room': D(p.operating.hotel.rooms),
     }
     amounts: list[Decimal | None] = [None] * len(p.costs)
     for i, c in enumerate(p.costs):
         if c.basis in first:
-            amounts[i] = c.value * first[c.basis]
+            base = first[c.basis]
+            if c.basis == 'monthly' and c.months is not None:
+                base = D(c.months)
+            if c.applies_to and c.basis == 'per_supply_py':
+                base = sum((py(u.supply_sqm) * u.count for u in p.units if u.kind in c.applies_to), ZERO)
+            elif c.applies_to and c.basis == 'per_unit':
+                base = D(sum(u.count for u in p.units if u.kind in c.applies_to))
+            amounts[i] = c.value * base
     land_base = sum((a for a, c in zip(amounts, p.costs) if a is not None and c.category == 'land'), ZERO)
     cons_base = sum((a for a, c in zip(amounts, p.costs) if a is not None and c.category == 'construction'), ZERO)
     direct = sum((a for a, c in zip(amounts, p.costs) if a is not None and c.category == 'construction' and c.basis in DIRECT_BASES), ZERO)
-    second = {'pct_land': land_base, 'pct_construction': cons_base, 'pct_direct': direct,
-              'pct_sales': rev['pct_sales_base'], 'pct_apt_sales': rev['apt_cash'], 'pct_general_sales': rev['general_cash']}
+    import re as _re
+    # 토지 매입대금 = 토지비 중 이름에 매입·토지대금 등이 들어간 정액·평당 항목 (없으면 토지비 합계) — 취득세·채권·지주작업비의 기준
+    purchase = sum((x for x, cc in zip(amounts, p.costs) if x is not None and cc.category == 'land' and not cc.basis.startswith(('pct_', 'auto_'))
+                    and _re.search(r'매입|토지\s*대금|토지비|대지|부지', cc.name)), ZERO) or land_base
+    second = {'pct_land': land_base, 'pct_land_purchase': purchase, 'pct_construction': cons_base, 'pct_direct': direct,
+              'pct_sales': rev['pct_sales_base'], 'pct_sales_net': rev['pct_sales_net_base'],
+              'pct_apt_sales': rev['apt_cash'], 'pct_general_sales': rev['general_cash']}
     for i, c in enumerate(p.costs):
         if c.basis in second:
-            amounts[i] = c.value / 100 * second[c.basis]
+            base = second[c.basis]
+            if c.applies_to and c.basis in ('pct_sales', 'pct_sales_net', 'pct_general_sales'):
+                key = '_net' if c.basis == 'pct_sales_net' else '_cash'
+                base = sum((r[key] for r in rev['rows'] if r['kind'] in c.applies_to
+                            and (c.basis != 'pct_general_sales' or r['buyer'] == 'general')), ZERO)
+                if 'apartment' in c.applies_to:   # 발코니 확장비는 공동주택 매출
+                    base += rev['balcony_net_d'] if c.basis == 'pct_sales_net' else rev['balcony_cash']
+            amounts[i] = c.value / 100 * base
     cons_all = sum((a for a, c in zip(amounts, p.costs) if a is not None and c.category == 'construction'), ZERO)
     for i, c in enumerate(p.costs):
         if c.basis == 'pct_construction_total':
@@ -410,23 +472,35 @@ def _costs(p: Proforma, rev: dict):
                 a, d = levies.metro_levy(p)
             elif c.basis in ('auto_sewer', 'auto_water'):
                 a, d = levies.utility_levy(p, c.basis, c.value)
-            elif c.basis == 'auto_preservation':
-                a, d = levies.preservation_tax(p, cons_all + indirect_all)
-            elif c.basis == 'auto_land_tax':   # 과세표준 = 토지 매입대금(이름에 매입·토지대금 등), 없으면 토지비 합계
-                import re as _re
-                purchase = sum((x for x, cc in zip(amounts, p.costs) if x is not None and cc.category == 'land' and not cc.basis.startswith(('pct_', 'auto_'))
-                                and _re.search(r'매입|토지\s*대금|토지비|대지', cc.name)), ZERO)
-                a, d = levies.land_tax(p, purchase or land_base)
+            elif c.basis == 'auto_preservation':   # 입력값(원/평)이 있으면 연면적 × 과표 단가, 없으면 공사비·설계감리 등
+                if c.value > 0:
+                    a, d = levies.preservation_tax(p, c.value * (above_py + below_py),
+                                                   f'연면적 {float(above_py + below_py):,.1f}평 × 과표 단가 {float(c.value):,.0f}원')
+                else:
+                    a, d = levies.preservation_tax(p, cons_all + indirect_all)
+            elif c.basis == 'auto_land_tax':   # 과세표준 = 토지 매입대금
+                a, d = levies.land_tax(p, purchase)
+            elif c.basis == 'auto_housing_bond':
+                a, d = levies.housing_bond(p, purchase, c.value)
+            elif c.basis == 'auto_art':
+                a, d = levies.art_levy(p, c.value)
+            elif c.basis == 'auto_dev_charge':
+                continue   # 다른 법정 항목(미술작품·부담금 등)이 모두 계산된 뒤 산정
             else:
-                a, d = levies.holding_tax(p)
+                a, d = levies.holding_tax(p, purchase)
             amounts[i], details[i] = a, d
+        for i, c in enumerate(p.costs):   # 개발부담금: 개발비용 = 공사비 + 설계·감리·용역 + 부담금 (법정 자동 포함)
+            if c.basis == 'auto_dev_charge':
+                dev = sum((x for x, cc in zip(amounts, p.costs) if x is not None and cc.category in ('construction', 'indirect', 'charges')
+                           and cc.basis != 'auto_dev_charge'), ZERO)
+                amounts[i], details[i] = levies.dev_charge(p, dev)
     vat_cost = cons_base * D('0.1') * p.nondeductible_vat_pct / 100
     subtotal = sum((a for a in amounts if a is not None), ZERO) + vat_cost
     for i, c in enumerate(p.costs):
         if c.basis == 'pct_total':
             amounts[i] = c.value / 100 * subtotal
     items = [{'category': c.category, 'name': c.name, 'basis': c.basis, 'value': float(c.value), 'amount': a, 'timing': c.timing,
-              **({'detail': details[i]} if i in details else {})}
+              **({'detail': details[i]} if i in details else {}), **({'applies_to': list(c.applies_to)} if c.applies_to else {})}
              for i, (c, a) in enumerate(zip(p.costs, amounts))]
     if p.hug.enabled:
         dev_total = sum((a for a in amounts if a is not None), ZERO) + vat_cost
@@ -628,6 +702,8 @@ def _solve(f, lo: Decimal, hi: Decimal, iters: int = 40) -> float | None:
 def analyze(p: Proforma) -> dict:
     if p.project_mode == 'rental':
         return analyze_rental(p)
+    if p.project_mode == 'operating':
+        return analyze_operating(p)
     return analyze_sale(p)
 
 
@@ -714,6 +790,99 @@ def analyze_rental(p: Proforma) -> dict:
     }
 
 
+def analyze_operating(p: Proforma) -> dict:
+    """운영형(호텔 + 운영·임대 상업시설): 사업비 → 준공 자본구조 → 연 단위 운영 → 매각."""
+    rev = _revenue(p, ZERO, ZERO)          # 분양 없음: 분양 연동 비용 기준 0
+    items, bases = _costs(p, rev)
+    fin_rows, _ = _finance(p, rev)
+    res = opmod.run(p, items, fin_rows)
+    o = p.operating
+    total_cost = res['total_cost']
+    a = {'land_sqm': float(p.land_area_sqm), 'land_py': float(py(p.land_area_sqm)), 'above_gfa_sqm': float(p.above_gfa_sqm),
+         'below_gfa_sqm': float(p.below_gfa_sqm), 'gfa_py': float(py(p.above_gfa_sqm + p.below_gfa_sqm)),
+         'supply_py': float(sum((py(u.supply_sqm) * u.count for u in p.units), ZERO)),
+         'far_pct': float(p.above_gfa_sqm / p.land_area_sqm * 100), 'units': sum(u.count for u in p.units),
+         'residential_units': sum(u.count for u in p.units if u.kind in ('apartment', 'officetel')), 'rooms': res['rooms']}
+    by_cat = []
+    for key, label in CATEGORY_NAMES.items():
+        rows = [i for i in items if i['category'] == key]
+        if rows and key != 'finance':
+            amt = sum((r['amount'] for r in rows), ZERO)
+            by_cat.append({'key': key, 'name': label, 'amount': won(amt), 'share': _ratio(amt, total_cost),
+                           'items': [{**r, 'amount': won(r['amount'])} for r in rows]})
+    # 금융비용 = 사업비 중 금융 항목(입력 순서대로 먼저) + 대출별 건설기간 이자·수수료
+    fin_items = [{**r, 'amount': won(r['amount'])} for r in items if r['category'] == 'finance'] \
+        + [{'category': 'finance', 'name': f"{l['name']} 이자 (건설기간)", 'basis': 'derived', 'amount': won(l['interest'])} for l in fin_rows] \
+        + [{'category': 'finance', 'name': f"{l['name']} 수수료", 'basis': 'derived', 'amount': won(l['fee'])} for l in fin_rows if l['fee']]
+    if fin_items:
+        by_cat.append({'key': 'finance', 'name': '금융비용', 'amount': won(res['finance_cost']), 'share': _ratio(res['finance_cost'], total_cost),
+                       'items': fin_items})
+    rows = res['rows']
+    life_rev = sum((x['total_revenue'] for x in rows), ZERO) + res['exit_value'] - res['exit_sale_cost']
+    life_cost = total_cost + sum((x['total_revenue'] - x['noi'] + x['interest'] for x in rows), ZERO)   # 운영비·수수료·보유세 + 운영기 이자
+    pbt = life_rev - life_cost
+    tax = sum((x['tax'] for x in rows), ZERO) + res['exit_gain_tax']
+    def st(ok, warn=False): return 'ok' if ok else ('warn' if warn else 'bad')
+    yoc, dscr, irr, uirr = res['yield_on_cost_pct'], res['min_dscr'], res['equity_irr_pct'], res['unlevered_irr_pct']
+    fin = [
+        {'name': 'Yield on Cost (1년차 NOI ÷ 총사업비)', 'value': float(yoc) if yoc is not None else None,
+         'display': f'{float(yoc):.2f}%' if yoc is not None else '–', 'status': st(yoc is not None and yoc >= o.yield_min_pct, yoc is not None and yoc >= o.yield_min_pct - 1),
+         'rule': f'적합 ≥ {o.yield_min_pct}%'},
+        {'name': '최저 DSCR', 'value': float(dscr) if dscr is not None else None, 'display': f'{float(dscr):.2f}배' if dscr is not None else '차입 없음',
+         'status': st(dscr is None or dscr >= o.dscr_min, dscr is not None and dscr >= 1), 'rule': f'적합 ≥ {o.dscr_min}배'},
+        {'name': f'Equity IRR ({o.hold_years}년 운영 후 매각' + (', 세후)' if p.corporate_tax.enabled else ')'), 'value': irr,
+         'display': f'{irr:.2f}%' if irr is not None else '–',
+         'status': st(irr is not None and irr >= o.irr_min_pct, irr is not None and irr >= 0), 'rule': f'적합 ≥ {o.irr_min_pct}%'},
+        {'name': 'Unlevered IRR (무차입·법인세 전, 참고)', 'value': uirr, 'display': f'{uirr:.2f}%' if uirr is not None else '–',
+         'status': 'ok' if uirr is not None else 'warn', 'rule': '참고'},
+    ]
+    legal = [{'name': '운영 계획 점검', 'status': 'warn' if res['warnings'] else 'ok',
+              'detail': ' / '.join(res['warnings']) or (f"호텔 {res['rooms']:,}실 · " if res['rooms'] else '')
+              + f"운영 라인 {len(o.lines)}개 · 보유 {o.hold_years}년 · 매각 Cap {float(o.exit_cap_pct):g}%"}]
+    comp = _compliance(p)
+    comp['items'] += hug_check(p, items, p.above_gfa_sqm + p.below_gfa_sqm)
+    legal += comp['items']
+    stat = [x['status'] for x in fin + legal]
+    overall = 'bad' if 'bad' in stat else 'warn' if 'warn' in stat else 'ok'
+    conv = lambda v: won(v) if isinstance(v, Decimal) else v
+    floats = ('occupancy_pct', 'gop_pct', 'noi_pct', 'dscr')
+
+    def row_out(x):
+        out = {k: (float(v) if k in floats and v is not None else conv(v)) for k, v in x.items() if k != 'lines'}
+        out['adr'], out['revpar'] = round(float(x['adr']), 1), round(float(x['revpar']), 1)
+        out['lines'] = [{k: conv(v) for k, v in l.items()} for l in x['lines']]
+        return out
+    op_out = {k: conv(v) for k, v in res.items() if k not in ('rows', 'equity_flows', 'unlevered_flows')}
+    for k in ('yield_on_cost_pct', 'min_dscr', 'equity_multiple', 'ltc_pct', 'debt_rate_pct'):
+        op_out[k] = float(res[k]) if res[k] is not None else None
+    op_out['rows'] = [row_out(x) for x in rows]
+    op_out['equity_flows'] = [won(v) for v in res['equity_flows']]
+    op_out['unlevered_flows'] = [won(v) for v in res['unlevered_flows']]
+    return {
+        'project_name': p.project_name, 'area': a,
+        'revenue': {'rows': [], 'sales_cash': 0, 'sales_vat': 0, 'sales_net': 0, 'balcony_cash': 0, 'balcony_vat': 0, 'other_income': 0,
+                    'total_cash': won(life_rev), 'total_vat': 0, 'total_net': won(life_rev)},
+        'costs': by_cat,
+        'summary': {'revenue_net': won(life_rev), 'development_cost': won(res['dev_cost']), 'finance_cost': won(res['finance_cost']),
+                    'total_cost': won(total_cost), 'pbt': won(pbt), 'corporate_tax': won(tax), 'npat': won(pbt - tax),
+                    'margin_pct': _pct(pbt, life_rev), 'cost_to_revenue_pct': _pct(life_cost, life_rev), 'roe_pct': _pct(pbt - tax, p.equity),
+                    'cost_per_supply_py': won(total_cost / D(str(a['supply_py']))) if a['supply_py'] else None,
+                    'cost_per_gfa_py': won(total_cost / D(str(a['gfa_py']))) if a['gfa_py'] else None,
+                    'land_per_py': won(bases['land'] / py(p.land_area_sqm)), 'construction_per_gfa_py': won(bases['construction'] / D(str(a['gfa_py']))) if a['gfa_py'] else None,
+                    'bep_sales_rate_pct': None, 'price_drop_tolerance_pct': None, 'equity_irr_pct': irr, 'project_irr_pct': uirr,
+                    'equity_multiple': op_out['equity_multiple'], 'peak_loan': None, 'extra_equity': op_out['extra_equity'],
+                    'equity': won(p.equity), 'debt': won(res['debt']), 'ltc_pct': op_out['ltc_pct'],
+                    'tax_method': '연도별 (NOI−이자−감가상각) + 매각 양도차익' if p.corporate_tax.enabled else '법인세 미반영'},
+        'sensitivity': {'sales_rates': [], 'price_adjusts': [], 'cells': []},
+        'redevelopment': None, 'cashflow': None, 'compliance': comp, 'rental': None, 'operating': op_out,
+        'hug_eligibility': hug_eligibility(p, bases['land'], res['dev_cost']),
+        'verdict': {**_label_reasons(overall, fin, legal), 'financial': fin, 'legal': legal,
+                    'note': '판정 기준값(Yield on Cost·DSCR·IRR)은 사내 기준에 맞게 조정하세요. ' + ' / '.join(res['notes'])},
+        'warnings': res['warnings'],
+        'notice': '운영형 사업수지는 입력한 점유율·ADR·운영비율·환원율 가정에 따른 연 단위 추정입니다. 호텔 운영 가정은 운영사 제안서·시장조사로, 보유세·법인세는 세무 검토로 확정하세요.',
+    }
+
+
 def analyze_sale(p: Proforma) -> dict:
     rev, items, bases, loans, mid, dev_cost, fin_cost, pbt, cf = _core(p, p.sales_rate_pct, p.price_adjust_pct)
     total_cost = dev_cost + fin_cost
@@ -741,15 +910,19 @@ def analyze_sale(p: Proforma) -> dict:
     by_cat = []
     for key, label in CATEGORY_NAMES.items():
         rows = [i for i in items if i['category'] == key]
-        if rows:
+        if rows and key != 'finance':
             amt = sum((r['amount'] for r in rows), ZERO)
             by_cat.append({'key': key, 'name': label, 'amount': won(amt), 'share': _ratio(amt, total_cost),
                            'items': [{**r, 'amount': won(r['amount'])} for r in rows]})
-    fin_items = [{'category': 'finance', 'name': f"{l['name']} 이자", 'basis': 'derived', 'amount': won(l['interest'])} for l in loans] \
+    # 금융비용 = 사업비 중 금융 항목(PF 수수료·신탁·지주작업비 등, 입력 순서대로 먼저) + 대출 이자·수수료 + 중도금 이자
+    fin_input = [i for i in items if i['category'] == 'finance']
+    fin_input_amt = sum((r['amount'] for r in fin_input), ZERO)
+    fin_items = [{**r, 'amount': won(r['amount'])} for r in fin_input] \
+        + [{'category': 'finance', 'name': f"{l['name']} 이자", 'basis': 'derived', 'amount': won(l['interest'])} for l in loans] \
         + [{'category': 'finance', 'name': f"{l['name']} 수수료", 'basis': 'derived', 'amount': won(l['fee'])} for l in loans if l['fee']]
     if p.midpay.effective_mode() == 'interest_free':
         fin_items.append({'category': 'finance', 'name': '중도금 대출이자 (무이자 · 시행사 부담)', 'basis': 'derived', 'amount': won(mid)})
-    by_cat.append({'key': 'finance', 'name': '금융비용', 'amount': won(fin_cost), 'share': _ratio(fin_cost, total_cost), 'items': fin_items})
+    by_cat.append({'key': 'finance', 'name': '금융비용', 'amount': won(fin_cost + fin_input_amt), 'share': _ratio(fin_cost + fin_input_amt, total_cost), 'items': fin_items})
 
     sens_rates = [D(60), D(70), D(80), D(90), D(100)]
     sens_prices = [D(-10), D(-5), D(0), D(5), D(10)]
@@ -765,8 +938,8 @@ def analyze_sale(p: Proforma) -> dict:
     gfa_py = py(p.above_gfa_sqm + p.below_gfa_sqm)
     debt = sum((l.amount for l in p.loans), ZERO)
     warnings = []
-    if p.above_gfa_sqm and supply_py * 400 / 121 > p.above_gfa_sqm:
-        warnings.append('분양(공급)면적 합계가 지상 연면적보다 큽니다. 면적 입력을 확인하세요.')
+    if p.above_gfa_sqm and supply_py * 400 / 121 > p.above_gfa_sqm + p.below_gfa_sqm:   # 계약면적(지하 주차 안분 포함)은 지상 연면적보다 클 수 있음
+        warnings.append('분양(계약)면적 합계가 전체 연면적보다 큽니다. 면적 입력을 확인하세요.')
     if p.equity + debt < bases['land']:
         warnings.append('자기자본+대출이 토지비보다 작습니다. 토지 잔금 조달 계획을 확인하세요.')
     if bep is not None and bep > 100:
@@ -790,7 +963,7 @@ def analyze_sale(p: Proforma) -> dict:
             'residential_units': sum(u.count for u in p.units if u.kind in ('apartment', 'officetel')),
         },
         'revenue': {
-            'rows': rev['rows'],
+            'rows': [{k: v for k, v in r.items() if not k.startswith('_')} for r in rev['rows']],
             'sales_cash': won(rev['sales_cash']), 'sales_vat': won(rev['sales_vat']), 'sales_net': won(rev['sales_net']),
             'balcony_cash': won(rev['balcony_cash']), 'balcony_vat': won(rev['balcony_vat']),
             'other_income': won(rev['other_income']),
@@ -799,8 +972,8 @@ def analyze_sale(p: Proforma) -> dict:
         'costs': by_cat,
         'summary': {
             'revenue_net': won(rev['total_net']),
-            'development_cost': won(dev_cost),
-            'finance_cost': won(fin_cost),
+            'development_cost': won(dev_cost - fin_input_amt),
+            'finance_cost': won(fin_cost + fin_input_amt),
             'total_cost': won(total_cost),
             'pbt': won(pbt),
             'corporate_tax': won(tax),

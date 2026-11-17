@@ -24,7 +24,7 @@ TIMING_NAMES = {
     'construction_even': '공사기간 균등', 'sales_start': '분양 개시월', 'sales_linked': '분양대금 수납 연동',
     'completion': '준공월', 'move_in': '입주(잔금)월', 'even': '전 기간 균등', 'property_tax': '재산세 (매년 7·9월)',
 }
-PERIOD_CATS = ('sales', 'admin')          # 판매비·관리비: 발생 연도 손금
+PERIOD_CATS = ('sales', 'admin', 'finance')          # 판매비·관리비: 발생 연도 손금
 INVENTORY_CATS = ('land', 'construction', 'indirect', 'charges', 'taxes', 'contingency')  # 분양원가: 진행률로 손금
 
 
@@ -82,13 +82,15 @@ def default_timing(item: dict) -> str:
     if cat == 'indirect':
         return 'construction_even'
     if cat == 'charges':
-        return 'sales_linked' if basis in ('pct_sales', 'pct_apt_sales') else 'construction_start'
+        return 'sales_linked' if basis in ('pct_sales', 'pct_sales_net', 'pct_apt_sales') else 'construction_start'
     if cat == 'sales':
-        return 'sales_linked' if basis in ('pct_sales', 'pct_apt_sales', 'per_unit') else 'sales_start'
+        return 'sales_linked' if basis in ('pct_sales', 'pct_sales_net', 'pct_apt_sales', 'pct_general_sales', 'per_unit') else 'sales_start'
     if cat == 'taxes':
         return 'completion' if basis == 'pct_construction' else 'property_tax'
     if cat == 'admin':
-        return 'sales_linked' if basis in ('pct_sales', 'pct_apt_sales') else 'even'
+        return 'sales_linked' if basis in ('pct_sales', 'pct_sales_net', 'pct_apt_sales') else 'even'
+    if cat == 'finance':   # PF 취급·주관 수수료 등은 착공(PF 실행)월, 매출 연동 신탁보수는 수납 연동
+        return 'sales_linked' if basis.startswith('pct_sales') else 'land_balance' if basis == 'pct_land' else 'construction_start'
     return 'construction_even'
 
 
@@ -202,7 +204,7 @@ def run(s: Schedule, horizon: int, rev: dict, items: list[dict], loans: list, eq
             for i in range(base_n):
                 out[i] += amount / base_n
         return out
-    cats = ['land', 'construction', 'indirect', 'charges', 'sales', 'taxes', 'admin', 'contingency']
+    cats = ['land', 'construction', 'indirect', 'charges', 'sales', 'taxes', 'admin', 'contingency', 'finance']
     cost_by_cat = {c: Z() for c in cats}
     for it in items:
         t = it.get('timing') or 'auto'

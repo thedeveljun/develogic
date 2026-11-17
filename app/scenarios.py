@@ -35,7 +35,7 @@ def metrics(p: Proforma) -> dict:
             'roe_pct': _f(s.get('roe_pct')), 'bep_sales_rate_pct': _f(s['bep_sales_rate_pct']), 'price_drop_tolerance_pct': _f(s['price_drop_tolerance_pct']),
             'equity_irr_pct': _f(s.get('equity_irr_pct')), 'equity_multiple': _f(s.get('equity_multiple')), 'ltc_pct': _f(s.get('ltc_pct')),
             'peak_loan': _f(s.get('peak_loan')), 'extra_equity': _f(s.get('extra_equity')), 'cost_per_supply_py': _f(s.get('cost_per_supply_py')),
-            'rent_yield_pct': next((_f(x['value']) for x in v['financial'] if x['name'].startswith('임대수익률')), None),
+            'rent_yield_pct': next((_f(x['value']) for x in v['financial'] if x['name'].startswith(('임대수익률', 'Yield on Cost'))), None),
             'min_dscr': next((_f(x['value']) for x in v['financial'] if 'DSCR' in x['name']), None),
         },
         'assume': {
@@ -133,9 +133,46 @@ STRESS_RENTAL = [
 ]
 
 
+# 운영형(호텔·운영시설): ADR·운영매출·점유율·매각 환원율·금리
+def _op_rev(p: Proforma, pct: float):
+    k = D(1) + D(str(pct)) / 100
+    o = p.operating
+    o.hotel.adr_year1 = (o.hotel.adr_year1 * k).quantize(D('1'))
+    for l in o.lines:
+        l.revenue_year1 = (l.revenue_year1 * k).quantize(D('1')); l.rent_per_py_month = (l.rent_per_py_month * k).quantize(D('1'))
+
+
+def _op_occ(p: Proforma, pp: float):
+    h = p.operating.hotel
+    h.occupancy_pct_by_year = [max(D(0), x + D(str(pp))) for x in h.occupancy_pct_by_year]
+    for l in p.operating.lines:
+        l.occupancy_pct = max(D(0), l.occupancy_pct + D(str(pp)))
+
+
+def _op_exit(p: Proforma, pct: float):   # 매각가 −x% ≈ 환원율 ÷ (1 − x%)
+    p.operating.exit_cap_pct = min(D(30), p.operating.exit_cap_pct / (D(1) + D(str(pct)) / 100))
+
+
+def _op_rate(p: Proforma, pp: float):
+    p.operating.refi_rate_pct = min(D(20), p.operating.refi_rate_pct + D(str(pp)))
+    _rate_up(p, pp)
+
+
+STRESS_OPERATING = [
+    ('rev10', '운영매출 −10%', 'ADR·운영사업 매출·임대료 10% 하락', [(_op_rev, -10)]),
+    ('occ10', '점유율 −10%p', '호텔 점유율·임대율 10%p 하락', [(_op_occ, -10)]),
+    ('exit10', '매각가 −10%', '보유 후 매각가 10% 하락 (환원율 상승)', [(_op_exit, -10)]),
+    ('cost10', '공사비 +10%', '공사비(정액·단가) 10% 상승 · 연동 비용 자동 반영', [(_cost_up, 10)]),
+    ('rate2', '금리 +2%p', '건설 PF·운영기 대출 금리 2%p 상승', [(_op_rate, 2)]),
+    ('delay6', '공기 6개월 지연', '사업·대출 기간 6개월 연장 (건설이자 증가)', [(_delay, 6)]),
+    ('combo', '복합 하방', '운영매출 −5% · 공사비 +5% · 금리 +1%p · 매각가 −5%', [(_op_rev, -5), (_cost_up, 5), (_op_rate, 1), (_op_exit, -5)]),
+]
+
+
 def stress(p: Proforma) -> list[dict]:
     out = [{'key': 'base', 'label': '현재 작업본', 'desc': '기준', **metrics(p), 'proforma': None}]
-    for key, label, desc, ops in (STRESS_RENTAL if p.project_mode == 'rental' else STRESS):
+    cases = {'rental': STRESS_RENTAL, 'operating': STRESS_OPERATING}.get(p.project_mode, STRESS)
+    for key, label, desc, ops in cases:
         q = deepcopy(p)
         for fn, arg in ops:
             fn(q, arg)

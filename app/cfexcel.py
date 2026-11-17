@@ -40,7 +40,7 @@ GROUPS = [
         ('기타 사업비', lambda x: sum(_n(x['cost_' + k]) for k in ('indirect', 'charges', 'sales', 'taxes', 'admin', 'contingency'))),
         ('부가세', lambda x: _n(x['vat_input']) + _n(x['vat_paid'])),
         ('법인세 등', lambda x: _n(x['corporate_tax']) + _n(x['local_tax'])),
-        ('금융비용', lambda x: _n(x['midpay_interest']) + _n(x['interest']) + _n(x['fees'])),
+        ('금융비용', lambda x: _n(x['midpay_interest']) + _n(x['interest']) + _n(x['fees']) + _n(x.get('cost_finance', 0))),
         ('대출 상환', lambda x: _n(x['repay'])),
     ]),
 ]
@@ -48,7 +48,7 @@ GROUPS = [
 DETAIL = [('계약금', 'deposit'), ('중도금', 'midpay'), ('잔금', 'balance_pay'), ('기타 수입', 'other_income'), ('중도금이자 회수', 'midpay_recovery'),
           ('자기자본 투입', 'equity_in'), ('추가 자기자본', 'extra_equity'), ('대출 인출', 'draw'),
           ('토지비', 'cost_land'), ('공사비', 'cost_construction'), ('설계·감리·용역비', 'cost_indirect'), ('부담금·인입비', 'cost_charges'),
-          ('분양·판매비', 'cost_sales'), ('제세공과금', 'cost_taxes'), ('일반관리비', 'cost_admin'), ('예비비', 'cost_contingency'),
+          ('분양·판매비', 'cost_sales'), ('제세공과금', 'cost_taxes'), ('일반관리비', 'cost_admin'), ('예비비', 'cost_contingency'), ('금융비(수수료·신탁 등)', 'cost_finance'),
           ('매입세액', 'vat_input'), ('부가세 납부(−환급)', 'vat_paid'), ('법인세', 'corporate_tax'), ('지방소득세', 'local_tax'),
           ('중도금 대출이자', 'midpay_interest'), ('PF·브릿지 이자', 'interest'), ('취급수수료', 'fees'), ('대출 상환', 'repay'),
           ('대출 잔액', 'loan_balance'), ('(참고) 매출세액 발생', 'vat_out')]

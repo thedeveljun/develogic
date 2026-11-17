@@ -20,7 +20,7 @@ STATUS = {'ok': ('적합', OK), 'warn': ('주의', WARN), 'bad': ('부적합', B
 BASIS = {'fixed': '정액', 'per_land_py': '대지 평당', 'per_above_py': '지상연면적 평당', 'per_below_py': '지하연면적 평당',
          'per_gfa_py': '전체연면적 평당', 'per_supply_py': '공급면적 평당', 'per_unit': '주거 세대당', 'monthly': '월 × 기간',
          'pct_land': '토지비 대비 %', 'pct_construction': '공사비 대비 %', 'pct_sales': '분양대금 대비 %',
-         'pct_apt_sales': '공동주택 분양대금 대비 %', 'pct_total': '사업비 합계 대비 %', 'derived': '산출'}
+         'pct_apt_sales': '공동주택 분양대금 대비 %', 'pct_total': '사업비 합계 대비 %', 'derived': '산출', 'per_room': '객실당'}
 KINDS = {'apartment': '공동주택', 'officetel': '오피스텔', 'retail': '상가·근생', 'office': '업무시설', 'knowledge': '지식산업센터', 'datacenter': '데이터센터', 'other': '기타'}
 
 
@@ -205,7 +205,7 @@ def build(p, r: dict) -> bytes:
         cols = [('month', '연월'), ('phase', '단계'), ('progress_cum', '누적 공정률'), ('deposit', '계약금'), ('midpay', '중도금'),
                 ('balance_pay', '잔금'), ('other_income', '기타수입'), ('cost_land', '토지비'), ('cost_construction', '공사비'),
                 ('cost_indirect', '설계·감리'), ('cost_charges', '부담금'), ('cost_sales', '분양·판매'), ('cost_taxes', '제세공과'),
-                ('cost_admin', '일반관리'), ('cost_contingency', '예비비'), ('vat_input', '매입세액'), ('vat_paid', '부가세 납부(환급)'),
+                ('cost_admin', '일반관리'), ('cost_contingency', '예비비'), ('cost_finance', '금융비(수수료 등)'), ('vat_input', '매입세액'), ('vat_paid', '부가세 납부(환급)'),
                 ('corporate_tax', '법인세'), ('local_tax', '지방소득세'), ('midpay_interest', '중도금이자'), ('midpay_recovery', '중도금이자 회수'),
                 ('interest', 'PF·브릿지 이자'),
                 ('fees', '취급수수료'), ('equity_in', '자기자본'), ('extra_equity', '추가 자기자본'), ('draw', '대출 인출'),
@@ -368,6 +368,32 @@ def build(p, r: dict) -> bytes:
                         ('Equity IRR', R['equity_irr_pct'], PCT), ('Equity Multiple', R['equity_multiple'], '0.00"배"')]:
             sh.row([k, v], [None, f])
         sh.row([' / '.join(R.get('sources', []))], color='627887')
+
+    O = r.get('operating')
+    if O:   # 운영형 (호텔 + 운영·임대 시설): 연도별 운영 손익 · 매각
+        sh = Sheet(wb.create_sheet('운영 수지', 1), [12] + [15] * 12)
+        sh.title('운영 수지 (보유·운영 후 매각)', ' / '.join(O.get('notes', [])))
+        sh.section('자본 구조 (준공 시)', 13)
+        for k, val in [('개발비 (금융비 제외)', O['dev_cost']), ('금융비용 (건설기간)', O['finance_cost']), ('총사업비', O['total_cost']),
+                       ('자기자본', O['equity']), ('대출 (운영기간)', O['debt'])]:
+            sh.row([k, val], [None, WON])
+        sh.gap()
+        sh.section('연도별 운영 손익 (원)', 13)
+        cols = [('year', '연차'), ('occupancy_pct', '점유율 %'), ('adr', 'ADR'), ('hotel_revenue', '호텔 매출'), ('gop', 'GOP'),
+                ('hotel_noi', '호텔 NOI'), ('line_revenue', '운영·임대 매출'), ('line_op', '운영·임대 이익'), ('property_tax', '보유세'),
+                ('noi', 'NOI'), ('interest', '이자'), ('dscr', 'DSCR'), ('cash_flow', '자기자본 CF')]
+        sh.header([c[1] for c in cols])
+        for x in O['rows']:
+            sh.row([x[k] for k, _ in cols], [None, '0.00', WON] + [WON] * 8 + ['0.00', WON])
+        sh.row(['매각 (매각가·대출 상환·지분 귀속)', None, None, None, None, None, None, None, None, O['exit_value'], O['exit_debt_repaid'], None, O['exit_net_to_equity']],
+               [None] * 9 + [WON, WON, None, WON], bold=True, fill=SOFT)
+        sh.gap()
+        for k, val, f in [('매각가 (NOI ÷ 환원율)', O['exit_value'], WON), ('준공 시점 가치 (1년차 NOI 기준)', O['value_at_completion'], WON),
+                          ('Yield on Cost (1년차)', O['yield_on_cost_pct'], PCT), ('최저 DSCR', O['min_dscr'], '0.00"배"'),
+                          ('Equity IRR', O['equity_irr_pct'], PCT), ('Unlevered IRR', O['unlevered_irr_pct'], PCT),
+                          ('Equity Multiple', O['equity_multiple'], '0.00"배"'), ('지분 NPV', O['equity_npv'], WON),
+                          ('지분 회수 (운영 연차)', O['payback_year'], '0"년차"')]:
+            sh.row([k, val], [None, f])
 
     for ws in wb.worksheets:
         ws.page_setup.orientation = 'landscape'

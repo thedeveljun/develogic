@@ -24,7 +24,10 @@ AUTO_BASES = {
     'auto_water': '상수도 원인자부담금 (수도법·조례)',
     'auto_preservation': '보존등기 취득세 (지방세법)',
     'auto_land_tax': '토지 취득세 (지방세법)',
-    'auto_holding': '토지 재산세 (지방세법)',
+    'auto_holding': '토지 보유세 (재산세·종부세)',
+    'auto_housing_bond': '국민주택채권 할인 (주택도시기금법)',
+    'auto_art': '건축물 미술작품 (문화예술진흥법)',
+    'auto_dev_charge': '개발부담금 (개발이익환수법)',
 }
 
 # 공공건설임대주택 표준건축비 (국토교통부고시 제2023-64호, 천원/㎡, 주택공급면적 기준) — [층수구간][전용면적구간]
@@ -123,13 +126,34 @@ def metro_levy(p) -> tuple[Decimal, str]:
                  + ' · 공제액(철도·도로 등 부담) 미반영')
 
 
-def preservation_tax(p, base: Decimal) -> tuple[Decimal, str]:
-    """건물 원시취득: 취득세 2.8% + 농특세 0.2%(국민주택규모 이하 주택 비과세) + 지방교육세 0.16%."""
+def knowledge_share(p) -> Decimal:
+    """지식산업센터 공급면적 비중 (취득세 감면 안분)."""
+    tot = sum((u.supply_sqm * u.count for u in p.units), ZERO)
+    kn = sum((u.supply_sqm * u.count for u in p.units if u.kind == 'knowledge'), ZERO)
+    return kn / tot if tot else ZERO
+
+
+def _relieved(rate: Decimal, main: Decimal, relief: Decimal) -> Decimal:
+    """취득세 감면 시 세율: 감면분만큼 취득세·교육세 등이 줄고, 농어촌특별세는 감면 취득세액의 20% 부과(농특세법 제5조①1).
+    rate=통상 합계세율, main=취득세 본세율, relief=감면율(0~1). 예) 토지 4.6%·50% → 2.3% + 4%×50%×20% = 2.7%"""
+    return rate * (1 - relief) + main * relief * D('0.2')
+
+
+def preservation_tax(p, base: Decimal, base_label: str | None = None) -> tuple[Decimal, str]:
+    """건물 원시취득: 취득세 2.8% + 농특세 0.2%(국민주택규모 이하 주택 비과세) + 지방교육세 0.16%.
+    지식산업센터 설립자 감면(지방세특례제한법 제58조의2)은 지식산업센터 면적 비중만큼 적용."""
     tot = sum((u.supply_sqm * u.count for u in p.units), ZERO)
     small = sum((u.supply_sqm * u.count for u in p.units if u.kind == 'apartment' and u.exclusive_sqm <= 85), ZERO)
     share = small / tot if tot else ZERO
     rate = D('0.0316') - D('0.002') * share
-    return base * rate, f'과세표준(공사비·설계감리 등) {float(base) / 1e8:,.1f}억 × {float(rate) * 100:.3f}% (2.8%+농특 0.2%+교육 0.16%, 국민주택규모 이하 주택 {float(share) * 100:.0f}%는 농특세 비과세)'
+    r = D(getattr(p, 'knowledge_relief_pct', 0) or 0) / 100
+    ks = knowledge_share(p) if r else ZERO
+    note = ''
+    if ks:
+        rate = rate * (1 - ks) + _relieved(D('0.0316'), D('0.028'), r) * ks
+        note = f' · 지식산업센터 {float(ks) * 100:.0f}% 취득세 {float(r) * 100:g}% 감면(지특법 제58조의2, 농특세 감면세액 20%)'
+    label = base_label or f'과세표준(공사비·설계감리 등) {float(base) / 1e8:,.1f}억'
+    return base * rate, f'{label} × {float(rate) * 100:.3f}% (2.8%+농특 0.2%+교육 0.16%, 국민주택규모 이하 주택 {float(share) * 100:.0f}%는 농특세 비과세{note})'
 
 
 FARM = ('전', '답', '과수원', '과')
@@ -141,24 +165,129 @@ def land_tax(p, base: Decimal) -> tuple[Decimal, str]:
     farm = sum((x.area_sqm for x in ps if str(x.jimok or '').strip() in FARM), ZERO)
     share = farm / tot if tot else ZERO
     rate = D('0.046') - D('0.012') * share
-    return base * rate, f'토지 매입가 {float(base) / 1e8:,.1f}억 × {float(rate) * 100:.2f}% (농지 외 4.6%, 농지 3.4%{f" · 농지 {float(share) * 100:.0f}%" if share else ""})'
+    r = D(getattr(p, 'knowledge_relief_pct', 0) or 0) / 100
+    ks = knowledge_share(p) if r else ZERO
+    note = ''
+    if ks:
+        rate = rate * (1 - ks) + _relieved(D('0.046'), D('0.04'), r) * ks
+        note = f' · 지식산업센터 {float(ks) * 100:.0f}% 취득세 {float(r) * 100:g}% 감면(지특법 제58조의2)'
+    return base * rate, f'토지 매입가 {float(base) / 1e8:,.1f}억 × {float(rate) * 100:.3f}% (농지 외 4.6%, 농지 3.4%{f" · 농지 {float(share) * 100:.0f}%" if share else ""}{note})'
 
 
-def holding_tax(p) -> tuple[Decimal, str]:
+def _progressive(x: Decimal, table) -> Decimal:
+    """누진세율: table = [(구간 상한 또는 None, 세율)]"""
+    tax, lower = ZERO, ZERO
+    for up, rate in table:
+        top = x if up is None else min(x, D(up))
+        if top > lower:
+            tax += (top - lower) * D(rate)
+        if up is None or x <= D(up):
+            break
+        lower = D(up)
+    return tax
+
+
+# 지방세법 제111조①1 (토지 재산세)
+PROPERTY_SPECIAL = [(200_000_000, '0.002'), (1_000_000_000, '0.003'), (None, '0.004')]   # 별도합산
+PROPERTY_GENERAL = [(50_000_000, '0.002'), (100_000_000, '0.003'), (None, '0.005')]      # 종합합산
+# 종합부동산세법 제14조 (토지): 별도합산 80억 공제·0.5~0.7%, 종합합산 5억 공제·1~3%, 공정시장가액비율 100%
+COMP_SPECIAL = (D(8_000_000_000), [(20_000_000_000, '0.005'), (40_000_000_000, '0.006'), (None, '0.007')])
+COMP_GENERAL = (D(500_000_000), [(1_500_000_000, '0.01'), (4_500_000_000, '0.02'), (None, '0.03')])
+
+
+def holding_tax(p, purchase: Decimal = ZERO) -> tuple[Decimal, str]:
+    """토지 보유세 (과세기준일 6.1 보유분, 연 단위).
+    - 분리과세(사업계획승인 받은 주택건설사업 토지): 0.2%
+    - 별도합산(상업·업무용 건축물 부속·건축 중 토지): 0.2~0.4% 누진 + 종부세(80억 초과)
+    - 종합합산(나대지 등): 0.2~0.5% 누진 + 종부세(5억 초과)
+    재산세 과표 = 공시지가 × 공정시장가액비율, 지방교육세 20%, 도시지역분 0.14%. 종부세는 농어촌특별세 20% 포함,
+    재산세 중복분 공제는 반영하지 않는다(보수적)."""
+    h = p.holding
     ps = [x for x in p.site.parcels if x.area_sqm and x.price_per_sqm]
     official = sum((x.area_sqm * x.price_per_sqm for x in ps), ZERO)
-    if not official:
-        return ZERO, '공시지가가 없어 산정하지 못했습니다 (필지 조회로 공시지가를 채우세요)'
-    sc = p.schedule
-    if sc and sc.enabled:
-        months = sc.construction_start_month + sc.construction_months + sc.move_in_lag_months - sc.land_balance_month
+    if h.base == 'purchase' or not official:
+        if not purchase:
+            return ZERO, '공시지가·토지 매입가가 없어 산정하지 못했습니다 (필지 조회로 공시지가를 채우거나 토지 매입비를 입력하세요)'
+        value, src = purchase, '토지 매입가' + ('' if h.base == 'purchase' else '(공시지가 없음 — 대용)')
     else:
-        months = p.duration_months
-    years = max(1, math.ceil(D(months) / 12))
-    std = official * D('0.7')
-    per_year = std * D('0.002') * D('1.2') + std * D('0.0014')   # 분리과세 0.2% + 지방교육세 20% + 도시지역분 0.14%
-    return per_year * years, (f'공시지가 {float(official) / 1e8:,.1f}억 × 70% × (0.2%×1.2 + 도시지역분 0.14%) × {years}년 '
-                              '(사업계획승인 후 분리과세 가정 — 승인 전은 종합합산·종부세 대상일 수 있음)')
+        value, src = official, '공시지가'
+    if h.years is not None:
+        years = h.years
+    else:
+        sc = p.schedule
+        if sc and sc.enabled:
+            months = sc.construction_start_month + sc.construction_months + sc.move_in_lag_months - sc.land_balance_month
+        else:
+            months = p.duration_months
+        years = max(1, math.ceil(D(months) / 12))
+    std = value * h.fair_ratio_pct / 100
+    if h.mode == 'separate':
+        prop, label = std * D('0.002'), '분리과세 0.2%'
+        comp = ZERO
+    else:
+        prop = _progressive(std, PROPERTY_SPECIAL if h.mode == 'special' else PROPERTY_GENERAL)
+        label = '별도합산 0.2~0.4%' if h.mode == 'special' else '종합합산 0.2~0.5%'
+        ded, table = COMP_SPECIAL if h.mode == 'special' else COMP_GENERAL
+        comp = _progressive(max(value - ded, ZERO), table) * D('1.2') if h.comprehensive else ZERO
+    per_year = prop * D('1.2') + std * D('0.0014') + comp
+    return per_year * years, (f'{src} {float(value) / 1e8:,.1f}억 × {float(h.fair_ratio_pct):g}% → 재산세 {label}(+교육세 20%) + 도시지역분 0.14%'
+                              + (f' + 종부세 {float(comp) / 1e6:,.1f}백만/년(농특세 포함)' if comp else '')
+                              + f' × {years}년' + (' (사업계획승인 후 분리과세 가정 — 승인 전·비주택은 별도/종합합산)' if h.mode == 'separate' else ''))
+
+
+def housing_bond(p, purchase: Decimal, discount_pct: Decimal) -> tuple[Decimal, str]:
+    """국민주택채권 매입 후 즉시매도 손실 (주택도시기금법 시행령 별표: 토지 소유권 이전등기, 시가표준액 기준).
+    매입비율: 시가표준액 1억 이상 — 특별시·광역시 5%, 그 밖 4.5% / 5천만~1억 4%·3.5% / 500만~5천만 2.5%·2%.
+    시가표준액(공시지가)이 없으면 토지 매입가로 대용. 입력값 = 즉시매도 할인율(%)."""
+    ps = [x for x in p.site.parcels if x.area_sqm and x.price_per_sqm]
+    official = sum((x.area_sqm * x.price_per_sqm for x in ps), ZERO)
+    base, src = (official, '시가표준액(공시지가)') if official else (purchase, '토지 매입가(공시지가 없음 — 대용)')
+    metro = (p.site.province or '').endswith(('특별시', '광역시'))
+    if base >= 100_000_000:
+        ratio = D('0.05') if metro else D('0.045')
+    elif base >= 50_000_000:
+        ratio = D('0.04') if metro else D('0.035')
+    elif base >= 5_000_000:
+        ratio = D('0.025') if metro else D('0.02')
+    else:
+        ratio = ZERO
+    if not discount_pct:
+        return ZERO, f'{src} {float(base) / 1e8:,.1f}억 × 매입비율 {float(ratio) * 100:g}% → 입력값에 즉시매도 할인율(%)을 넣으세요 (매일 고시, 통상 2~10%)'
+    bond = base * ratio
+    return bond * discount_pct / 100, f'{src} {float(base) / 1e8:,.1f}억 × 매입비율 {float(ratio) * 100:g}%({"특별시·광역시" if metro else "그 밖 지역"}) = 채권 {float(bond) / 1e6:,.1f}백만 × 할인율 {float(discount_pct):g}%'
+
+
+def art_levy(p, std_cost_sqm: Decimal) -> tuple[Decimal, str]:
+    """건축물 미술작품 (문화예술진흥법 제9조, 시행령 제12조): 연면적 1만㎡ 이상 건축물,
+    건축비용(연면적 × 지자체 고시 표준건축비)의 공동주택 1천분의 1, 그 밖 건축물 1천분의 5 (조례로 상향 가능).
+    입력값 = 표준건축비(원/㎡)."""
+    gfa = p.above_gfa_sqm + p.below_gfa_sqm
+    if gfa < 10000:
+        return ZERO, f'연면적 {float(gfa):,.0f}㎡ — 1만㎡ 미만은 설치 의무 없음(시행령 제12조①)'
+    if not std_cost_sqm:
+        return ZERO, f'연면적 {float(gfa):,.0f}㎡ → 입력값에 지자체 고시 표준건축비(원/㎡)를 넣으세요'
+    tot = sum((u.supply_sqm * u.count for u in p.units), ZERO)
+    apt = sum((u.supply_sqm * u.count for u in p.units if u.kind == 'apartment'), ZERO)
+    share = apt / tot if tot else ZERO
+    rate = D('0.001') * share + D('0.005') * (1 - share)
+    return gfa * std_cost_sqm * rate, (f'연면적 {float(gfa):,.0f}㎡ × 표준건축비 {float(std_cost_sqm):,.0f}원 × {float(rate) * 100:.3f}%'
+                                       f' (공동주택 0.1%{f"·{float(share) * 100:.0f}%" if share else ""}, 그 밖 0.5% — 조례 요율 확인)')
+
+
+def dev_charge(p, dev_cost: Decimal) -> tuple[Decimal, str]:
+    """개발부담금 (개발이익 환수에 관한 법률 제8조·제13조):
+    (종료시점지가 − 개시시점지가 − 정상지가상승분 − 개발비용) × 부과율.
+    대상: 택지개발·도시개발·지목변경 수반 사업 등 일정 규모 이상 (이미 대지인 토지의 건축만은 대상 아님).
+    개발비용 = 공사비 + 설계·감리·용역비 + 부담금 (+ 기부채납액). 지가는 사업지 전체 금액."""
+    d = p.dev_charge
+    if not d.end_value:
+        return ZERO, '개발부담금 설정의 종료시점지가를 입력하세요 (부과 대상 사업만 — 이미 대지인 토지의 건축은 대상 아님)'
+    normal = d.start_value * d.normal_rise_pct / 100
+    cost = dev_cost + d.donation_value
+    gain = d.end_value - d.start_value - normal - cost
+    amt = max(gain, ZERO) * d.rate_pct / 100
+    return amt, (f'(종료 {float(d.end_value) / 1e8:,.1f}억 − 개시 {float(d.start_value) / 1e8:,.1f}억 − 정상상승 {float(normal) / 1e8:,.1f}억'
+                 f' − 개발비용 {float(cost) / 1e8:,.1f}억) × {float(d.rate_pct):g}%' + ('' if gain > 0 else ' → 개발이익 없음'))
 
 
 def _rooms(exclusive: Decimal) -> int:

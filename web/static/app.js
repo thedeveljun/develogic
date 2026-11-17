@@ -159,20 +159,24 @@ const CATS = [
   ['taxes', '제세공과금', '보존등기비(건물 취득세), 재산세·종부세'],
   ['admin', '일반관리비', '시행사 운영비, 신탁·PM 수수료'],
   ['contingency', '예비비', '사업비 합계 대비 비율 권장'],
+  ['finance', '금융비 (수수료·신탁 등)', 'PF 수수료·신탁·PM·지주작업비 (이자는 금융 탭 자동)'],
 ];
 const CAT_COLORS = { land: '#111a2e', construction: '#1e88d6', indirect: '#7cc0f0', charges: '#6741d9', sales: '#2f9e44', taxes: '#e8590c', admin: '#94a3b8', contingency: '#c9d4db', finance: '#c2255c' };
 const BASES = {
   fixed: ['정액', '원'], per_land_py: ['대지 평당', '원/평'], per_above_py: ['지상연면적 평당', '원/평'], per_below_py: ['지하연면적 평당', '원/평'],
   per_gfa_py: ['전체연면적 평당', '원/평'], per_supply_py: ['공급면적 평당', '원/평'], per_unit: ['주거 세대당', '원/세대'], monthly: ['월 금액 × 사업기간', '원/월'],
-  pct_land: ['토지비 대비', '%'], pct_construction: ['공사비(정액·평당 항목) 대비', '%'], pct_direct: ['직접공사비(연면적 평당) 대비', '%'],
+  pct_land: ['토지비 대비', '%'], pct_land_purchase: ['토지 매입대금 대비', '%'], pct_sales_net: ['매출액(부가세 제외) 대비', '%'], pct_construction: ['공사비(정액·평당 항목) 대비', '%'], pct_direct: ['직접공사비(연면적 평당) 대비', '%'],
   pct_construction_total: ['공사비 합계 대비', '%'], pct_sales: ['분양대금 대비', '%'], pct_general_sales: ['일반분양대금 대비', '%'],
   pct_apt_sales: ['공동주택 분양대금 대비', '%'], pct_total: ['사업비 합계 대비', '%'],
   // 법정 자동 산정 (app/levies.py) — 입력값이 필요 없는 항목은 '자동'
   auto_school: ['⚖ 법정: 학교용지부담금', '자동'], auto_metro: ['⚖ 법정: 광역교통시설부담금', '자동'],
   auto_sewer: ['⚖ 법정: 하수도 원인자부담금', '원/㎥'], auto_water: ['⚖ 법정: 상수도 원인자부담금', '원/세대'],
-  auto_preservation: ['⚖ 법정: 보존등기 취득세', '자동'], auto_land_tax: ['⚖ 법정: 토지 취득세', '자동'], auto_holding: ['⚖ 법정: 토지 재산세', '자동'],
+  auto_preservation: ['⚖ 법정: 보존등기 취득세', '자동'], auto_land_tax: ['⚖ 법정: 토지 취득세', '자동'], auto_holding: ['⚖ 법정: 토지 보유세(재산세·종부세)', '자동'],
+  auto_housing_bond: ['⚖ 법정: 국민주택채권 할인', '할인율 %'], auto_art: ['⚖ 법정: 미술작품 설치', '원/㎡'], auto_dev_charge: ['⚖ 법정: 개발부담금', '자동'],
+  per_room: ['객실당 (호텔)', '원/실'],
 };
-const AUTO_NOVALUE = new Set(['auto_school', 'auto_metro', 'auto_preservation', 'auto_land_tax', 'auto_holding']);
+const AUTO_NOVALUE = new Set(['auto_school', 'auto_metro', 'auto_land_tax', 'auto_holding', 'auto_dev_charge']);
+const KIND_BASES = new Set(['pct_sales', 'pct_sales_net', 'pct_general_sales', 'per_supply_py', 'per_unit']);   // 적용 용도로 대상 한정 가능
 const KINDS = { apartment: '공동주택', officetel: '오피스텔', retail: '상가·근생', office: '업무시설', knowledge: '지식산업센터', datacenter: '데이터센터', other: '기타' };
 const BUYERS = { general: '일반분양', member: '조합원', rental: '임대·매각' };
 const TIMINGS = {
@@ -180,17 +184,18 @@ const TIMINGS = {
   construction_start: '착공월', construction_curve: '공정률 연동', construction_even: '공사기간 균등', sales_start: '분양 개시월',
   sales_linked: '분양대금 수납 연동', completion: '준공월', move_in: '입주(잔금)월', even: '전 기간 균등', property_tax: '재산세 (매년 7·9월)',
 };
-const isPct = b => b.startsWith('pct_');
+const isPct = b => b.startsWith('pct_') || b === 'auto_housing_bond';
 // 분류별로 의미 있는 산정 기준만 보여 준다 (첫 번째가 새 항목 기본값)
 const CAT_BASES = {
-  land: ['per_land_py', 'fixed', 'pct_land', 'auto_land_tax'],
-  construction: ['per_gfa_py', 'per_above_py', 'per_below_py', 'per_supply_py', 'per_unit', 'fixed', 'pct_direct', 'pct_construction'],
+  land: ['per_land_py', 'fixed', 'pct_land', 'pct_land_purchase', 'auto_land_tax', 'auto_housing_bond', 'auto_holding'],
+  construction: ['per_gfa_py', 'per_above_py', 'per_below_py', 'per_supply_py', 'per_unit', 'per_room', 'fixed', 'pct_direct', 'pct_construction', 'auto_art'],
   indirect: ['per_gfa_py', 'per_above_py', 'per_supply_py', 'per_unit', 'fixed', 'pct_direct', 'pct_construction', 'pct_construction_total'],
-  charges: ['fixed', 'auto_school', 'auto_metro', 'auto_sewer', 'auto_water', 'per_unit', 'per_land_py', 'per_gfa_py', 'per_supply_py', 'pct_apt_sales', 'pct_sales', 'pct_construction'],
-  sales: ['fixed', 'per_unit', 'monthly', 'pct_sales', 'pct_general_sales', 'pct_apt_sales'],
-  taxes: ['fixed', 'auto_preservation', 'auto_holding', 'auto_land_tax', 'per_land_py', 'pct_land', 'pct_construction', 'pct_construction_total', 'pct_sales'],
-  admin: ['monthly', 'fixed', 'per_unit', 'pct_sales', 'pct_general_sales'],
-  contingency: ['pct_total', 'pct_construction', 'pct_direct', 'pct_construction_total', 'fixed'],
+  charges: ['fixed', 'auto_school', 'auto_metro', 'auto_sewer', 'auto_water', 'auto_dev_charge', 'auto_art', 'per_unit', 'per_land_py', 'per_gfa_py', 'per_supply_py', 'pct_apt_sales', 'pct_sales', 'pct_construction'],
+  sales: ['fixed', 'per_unit', 'per_supply_py', 'monthly', 'pct_sales', 'pct_sales_net', 'pct_general_sales', 'pct_apt_sales'],
+  taxes: ['fixed', 'auto_preservation', 'auto_holding', 'auto_land_tax', 'auto_housing_bond', 'per_land_py', 'per_gfa_py', 'pct_land', 'pct_construction', 'pct_construction_total', 'pct_sales', 'pct_sales_net'],
+  admin: ['monthly', 'fixed', 'per_unit', 'pct_sales', 'pct_sales_net', 'pct_general_sales'],
+  contingency: ['pct_total', 'pct_construction', 'pct_direct', 'pct_construction_total', 'pct_sales_net', 'fixed'],
+  finance: ['fixed', 'pct_sales_net', 'pct_sales', 'pct_land_purchase', 'pct_land', 'pct_construction_total', 'monthly'],
 };
 const basesFor = (cat, cur) => { const l = CAT_BASES[cat] || Object.keys(BASES); return l.includes(cur) ? l : [...l, cur]; };
 
@@ -198,7 +203,7 @@ let pf = null, lastPf = null, pfTimer = null, pfSeq = 0, pfUnit = 1e6, sensMode 
 const collapsed = new Set();
 
 // 입력칸 id 접두어 → pf 안의 객체
-const PREFIX = [['rt_', p => p.rental], ['hg_', p => p.hug], ['sp_', p => p.site.plan], ['sc_', p => p.schedule || {}], ['pa_', p => p.prior_assets], ['cr_', p => p.criteria], ['s_', p => p.site],
+const PREFIX = [['hd_', p => (p.holding ||= {})], ['dc_', p => (p.dev_charge ||= {})], ['rt_', p => p.rental], ['hg_', p => p.hug], ['sp_', p => p.site.plan], ['sc_', p => p.schedule || {}], ['pa_', p => p.prior_assets], ['cr_', p => p.criteria], ['s_', p => p.site],
   ['p_', p => p], ['m_', p => p.midpay], ['t_', p => p.corporate_tax]];
 const target = (obj, id) => { const e = PREFIX.find(([k]) => id.startsWith(k)); return e ? [e[1](obj), id.slice(e[0].length)] : [null, null]; };
 function setPath(obj, id, val) {
@@ -304,15 +309,48 @@ function renderCostCards() {
       <div class="tablewrap"><table class="edit"><thead><tr><th style="width:150px;min-width:150px">항목</th><th style="width:195px;min-width:195px">산정 기준</th><th class="r" style="width:185px;min-width:185px">입력값</th><th class="r" style="width:100px;min-width:100px">산출 금액</th><th style="min-width:110px">비고</th><th></th></tr></thead><tbody>
       ${rows.map(([c, i]) => `<tr>
         <td><input data-c="${i}" data-k="name" value="${esc(c.name)}" title="${esc(c.name)}"></td>
-        <td><select data-c="${i}" data-k="basis">${basesFor(key, c.basis).map(b => `<option value="${b}" ${c.basis === b ? 'selected' : ''}>${BASES[b][0]}</option>`).join('')}</select></td>
+        <td><select data-c="${i}" data-k="basis">${basesFor(key, c.basis).map(b => `<option value="${b}" ${c.basis === b ? 'selected' : ''}>${(BASES[b] || [b])[0]}</option>`).join('')}</select>${kindSelect(c, i)}</td>
         <td>${AUTO_NOVALUE.has(c.basis) ? `<div class="unit"><input disabled value="법령·조례 기준" style="text-align:right;color:var(--muted)" title="입력값 없이 법령·조례로 자동 계산"><span>자동</span></div>`
-          : `<div class="unit"><input class="${isPct(c.basis) ? '' : 'money-in'}" style="text-align:right" ${isPct(c.basis) ? 'type="number" step="any"' : 'inputmode="numeric"'} data-c="${i}" data-k="value" value="${isPct(c.basis) ? c.value : fmt(c.value, 2)}" ${c.basis === 'auto_sewer' ? 'placeholder="지자체 공고 단가"' : c.basis === 'auto_water' ? 'placeholder="조례 내장 지역은 비워도 됨"' : ''}><span>${BASES[c.basis][1]}</span></div>`}</td>
+          : `<div class="unit"><input class="${isPct(c.basis) ? '' : 'money-in'}" style="text-align:right" ${isPct(c.basis) ? 'type="number" step="any"' : 'inputmode="numeric"'} data-c="${i}" data-k="value" value="${isPct(c.basis) ? c.value : fmt(c.value, 2)}" ${c.basis === 'auto_sewer' ? 'placeholder="지자체 공고 단가"' : c.basis === 'auto_water' ? 'placeholder="조례 내장 지역은 비워도 됨"' : c.basis === 'auto_preservation' ? 'placeholder="비우면 공사비 기준" title="과표 단가(원/평) × 연면적 — 비우면 공사비·설계감리 합계를 과세표준으로"' : c.basis === 'auto_art' ? 'placeholder="표준건축비"' : ''}><span>${c.basis === 'auto_preservation' ? '원/평' : (BASES[c.basis] || ['', ''])[1]}</span></div>`}</td>
         <td class="r money" data-amt="${i}">–</td>
         <td><input data-c="${i}" data-k="note" value="${esc(c.note || '')}" placeholder="메모"></td>
-        <td><button class="del" data-del-c="${i}" title="삭제">✕</button></td></tr>${c.basis.startsWith('auto_') ? `<tr class="auto-detail"><td colspan="6"><span data-det="${i}" class="muted">계산 중…</span></td></tr>` : ''}`).join('') || `<tr><td colspan="6" class="c muted">항목이 없습니다.</td></tr>`}
+        <td><button class="del" data-del-c="${i}" title="삭제">✕</button></td></tr>${c.basis.startsWith('auto_') ? `<tr class="auto-detail"><td colspan="6">${autoSettings(c.basis)}<span data-det="${i}" class="muted">계산 중…</span></td></tr>` : ''}`).join('') || `<tr><td colspan="6" class="c muted">항목이 없습니다.</td></tr>`}
       </tbody></table></div></div>`;
   }).join('');
   updateCostAmounts();
+}
+// 적용 용도: 분양대금·공급면적·세대당 기준을 한 용도로 한정 (예: 분양수수료 상가 7%·오피스텔 5%를 줄 단위로)
+function kindSelect(c, i) {
+  if (!KIND_BASES.has(c.basis)) return '';
+  const kinds = [...new Set(pf.units.map(u => u.kind))];
+  const cur = (c.applies_to || [])[0] || '';
+  if (kinds.length < 2 && !cur) return '';
+  return `<select data-c="${i}" data-k="applies_to" style="margin-top:4px" title="적용 용도 — 해당 용도의 매출·면적·세대만 기준으로 계산">
+    <option value="">전체 용도</option>${Object.entries(KINDS).filter(([k]) => kinds.includes(k) || k === cur).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v}만</option>`).join('')}</select>`;
+}
+// 법정 자동 항목의 산정 조건 (보유세 과세 방식·지산 감면·개발부담금 지가)
+function autoSettings(basis) {
+  const sel = (id, opts, v) => `<select data-pf id="${id}" style="width:auto;display:inline-block;padding:2px 6px">${opts.map(([k, l]) => `<option value="${k}" ${String(v) === String(k) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  const num = (id, v, ph, w = 90) => `<input data-pf id="${id}" type="number" step="any" value="${v ?? ''}" placeholder="${ph}" style="width:${w}px;display:inline-block;padding:2px 6px;text-align:right">`;
+  const money = (id, v, ph) => `<input data-pf id="${id}" class="money-in" inputmode="numeric" value="${v ? moneyVal(v) : ''}" placeholder="${ph}" style="width:130px;display:inline-block;padding:2px 6px;text-align:right">`;
+  const wrap = x => `<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:13px;margin-bottom:4px">${x}</div>`;
+  if (basis === 'auto_holding') {
+    const h = pf.holding || {};
+    return wrap(`과세 ${sel('hd_mode', [['separate', '분리과세 (주택건설 승인 토지 0.2%)'], ['special', '별도합산 (상업·업무 건축 부지)'], ['general', '종합합산 (나대지)']], h.mode || 'separate')}
+      기준 ${sel('hd_base', [['official', '공시지가'], ['purchase', '토지 매입가']], h.base || 'official')}
+      공정시장가액비율 ${num('hd_fair_ratio_pct', h.fair_ratio_pct ?? 70, '70', 60)}%
+      과세 ${num('hd_years', h.years, '자동', 60)}년
+      <label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" data-pf id="hd_comprehensive" ${h.comprehensive !== false ? 'checked' : ''}> 종부세</label>`);
+  }
+  if ((basis === 'auto_land_tax' || basis === 'auto_preservation') && pf.units.some(u => u.kind === 'knowledge'))
+    return wrap(`지식산업센터 취득세 감면 ${num('p_knowledge_relief_pct', pf.knowledge_relief_pct || 0, '0', 60)}% <span class="muted">(지방세특례제한법 제58조의2 — 시기별 50%·35%, 일몰·사후관리 확인)</span>`);
+  if (basis === 'auto_dev_charge') {
+    const d = pf.dev_charge || {};
+    return wrap(`개시시점지가 ${money('dc_start_value', d.start_value, '원')} 종료시점지가 ${money('dc_end_value', d.end_value, '원')}
+      정상지가상승 ${num('dc_normal_rise_pct', d.normal_rise_pct ?? 0, '%', 70)}% 기부채납액 ${money('dc_donation_value', d.donation_value, '원')}
+      부과율 ${num('dc_rate_pct', d.rate_pct ?? 25, '25', 55)}%`);
+  }
+  return '';
 }
 function updateCostAmounts() {
   if (!lastPf || !pf) return;
@@ -324,7 +362,11 @@ function updateCostAmounts() {
     const td = document.querySelector(`[data-amt="${i}"]`); if (td) td.textContent = it ? krw(it.amount) : '–';
     const det = document.querySelector(`[data-det="${i}"]`); if (det) det.textContent = it?.detail ? '⚖ ' + it.detail : '';
   });
-  document.querySelectorAll('[data-cat-sum]').forEach(el => { const c = byCat[el.dataset.catSum]; el.textContent = c ? '소계 ' + krwW(c.amount) : '소계 0원'; });
+  document.querySelectorAll('[data-cat-sum]').forEach(el => {
+    const c = byCat[el.dataset.catSum];
+    const amt = !c ? 0 : el.dataset.catSum === 'finance' ? c.items.filter(x => x.basis !== 'derived').reduce((t, x) => t + x.amount, 0) : c.amount;   // 금융비 카드: 입력 항목만 (이자는 금융 조건)
+    el.textContent = '소계 ' + krwW(amt);
+  });
 }
 
 /* — 4. 금융·세금 — */
@@ -378,6 +420,14 @@ $('view-proforma').addEventListener('input', e => {
     if (t.id === 'm_mode') updateMidUI();
     updateFar();
   }
+  else if (t.dataset.op !== undefined) {
+    const ty = t.dataset.ot;
+    const v = ty === 'list' ? t.value.split(',').map(x => Number(x.trim())).filter(x => isFinite(x) && String(x) !== '')
+      : ty === 'money' ? (parseNum(t.value) ?? 0) : ty === 'bool' ? t.checked : ty === 'sel' || ty === 'text' ? t.value : (t.value === '' ? 0 : Number(t.value));
+    if (ty === 'list' && !v.length) return;
+    opSet(t.dataset.op, v);
+    if (t.dataset.op.endsWith('.kind')) renderOperatingCard();
+  }
   else if (t.dataset.u !== undefined) { pf.units[t.dataset.u][k] = ['name', 'kind', 'buyer'].includes(k) ? t.value : (val ?? 0); updateUnitCalc(); }
   else if (t.dataset.c !== undefined) {
     const c = pf.costs[t.dataset.c];
@@ -388,7 +438,8 @@ $('view-proforma').addEventListener('input', e => {
       renderCostCards();
       const inp = document.querySelector(`input[data-c="${t.dataset.c}"][data-k="value"]`);
       if (kindChanged && inp) { inp.focus(); inp.select(); notice('산정 기준이 바뀌어 입력값을 0으로 초기화했습니다. 새 값을 입력하세요.'); }
-    } else c[k] = k === 'value' ? (val ?? 0) : t.value;
+    } else if (k === 'applies_to') c.applies_to = t.value ? [t.value] : [];
+    else c[k] = k === 'value' ? (val ?? 0) : t.value;
   }
   else if (t.dataset.l !== undefined) { pf.loans[t.dataset.l][k] = k === 'name' ? t.value : k === 'maturity_month' ? val : (val ?? 0); updateLoanCalc(); }
   else if (t.dataset.z !== undefined) { pf.site.zones[t.dataset.z][k] = k === 'zone' ? t.value : (val ?? 0); if (k === 'zone') { renderZones(); } autoApplyFar(); }
@@ -409,6 +460,8 @@ $('view-proforma').addEventListener('input', e => {
 $('view-proforma').addEventListener('click', e => {
   const t = e.target;
   if (t.dataset.delU !== undefined) { pf.units.splice(t.dataset.delU, 1); renderUnits(); pfRecalc(); }
+  else if (t.dataset.opAdd) { pf.operating.lines.push({ name: '운영 라인', kind: 'lease', revenue_year1: 0, cost_pct: 60, area_py: 0, rent_per_py_month: 0, occupancy_pct: 95, opex_pct: 10, growth_pct: 2, start_year: 1 }); renderOperatingCard(); pfRecalc(); }
+  else if (t.dataset.opDel !== undefined) { pf.operating.lines.splice(t.dataset.opDel, 1); renderOperatingCard(); pfRecalc(); }
   else if (t.dataset.delC !== undefined) { pf.costs.splice(t.dataset.delC, 1); renderCostCards(); pfRecalc(); }
   else if (t.dataset.delL !== undefined) { pf.loans.splice(t.dataset.delL, 1); renderLoans(); pfRecalc(); }
   else if (t.dataset.addC) {
@@ -477,7 +530,7 @@ function renderPfResults() {
   $('pfWarnings').innerHTML = r.warnings.length ? `<div class="alert warn fit"><b>확인 필요</b><ul>${r.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '';
   $('pfNotice').textContent = '※ ' + r.notice;
   updateCostAmounts(); renderArea(); renderPnl(); renderStack(); renderKpi(); renderRev(); renderSens();
-  renderVerdict(); renderCfPf(); renderCases(); renderZones(); updateLoanCalc(); renderPlan(); applyPlanGfa(); renderHug(); renderRental();
+  renderVerdict(); renderCfPf(); renderCases(); renderZones(); updateLoanCalc(); renderPlan(); applyPlanGfa(); renderHug(); renderRental(); renderOperating();
 }
 function renderArea() {
   const a = lastPf.area;
@@ -698,6 +751,104 @@ $('ordFetch').onclick = e => busy(e.target, async () => {
   try { const f = await api('POST', '/api/v4/ordinance/fetch', { province: pf.site.province, municipality: (pf.site.municipality || '').trim() }); ordCache = { ...(ordCache || {}), ordinance: f.ordinance }; if (!ordCache.national) await loadOrdinance(false); renderZones(); renderOrdNotes(); if (!autoApplyFar(true)) notice('조례를 불러왔습니다.'); pfRecalc(); }
   catch (err) { $('zoningNotes').innerHTML = errBox(err); }
 });
+
+/* ═══ 운영형 (호텔·운영시설 보유 → 매각) ═══ */
+const OP_DEFAULT = () => ({ hold_years: 10, dev_years: 3, cost_split_pct_by_year: [20, 40, 40], equity_split_pct_by_year: [100], hotel: { enabled: true, rooms: 0, days: 365,
+  occupancy_pct_by_year: [65, 70, 75], adr_year1: 120000, adr_growth_pct: 2, round_sold_rooms: true, room_other_pct: 3, fnb_pct_of_room_by_year: [20], other_revenue_pct_of_room: 0,
+  rooms_cost_pct_by_year: [25], room_other_cost_pct: 30, fnb_cost_pct: 75, other_cost_pct: 50,
+  undistributed: [{ name: '관리비 (A&G)', pct_by_year: [9] }, { name: '판촉비 (S&M)', pct_by_year: [5] }, { name: '시설유지비 (R&M)', pct_by_year: [4] }, { name: '수도광열비 (Utility)', pct_by_year: [4] }],
+  base_fee_pct: 2.5, incentive_fee_pct: 6, insurance_pct: 1, ffe_reserve_pct: 3 }, lines: [], property_tax_year1: 0, property_tax_growth_pct: 2,
+  debt_mode: 'carry', refi_rate_pct: 4.5, refi_amort_years: 0, exit_cap_pct: 6, exit_noi_basis: 'trailing', sale_cost_pct: 1, valuation_cap_pct: 6,
+  building_ratio_pct: 60, depreciation_years: 40, discount_rate_pct: 7, yield_min_pct: 6, dscr_min: 1.2, irr_min_pct: 8 });
+const opGet = path => path.split('.').reduce((o, k) => o?.[k], pf.operating);
+function opSet(path, v) { const ks = path.split('.'); const last = ks.pop(); ks.reduce((o, k) => o[k], pf.operating)[last] = v; }
+const listTxt = v => (v || []).map(x => +Number(x).toFixed(4)).join(', ');
+function renderOperatingCard() {
+  if (pf.project_mode !== 'operating') { $('operatingCard').innerHTML = ''; return; }
+  pf.operating = pf.operating || OP_DEFAULT();
+  const o = pf.operating, h = o.hotel;
+  const fld = (label, path, unit, kind = 'num', hint = '') => {
+    const v = opGet(path);
+    const mm = /^(%)\s*\((.+)\)$/.exec(unit);   // '% (총매출)' → 단위 '%', 기준은 라벨에
+    if (mm) { unit = '%'; label += ` <span class="muted" style="font-weight:400">· ${mm[2]} 대비</span>`; }
+    const inp = kind === 'list' ? `<input data-op="${path}" data-ot="list" value="${listTxt(v)}" placeholder="1년차, 2년차, … (이후 마지막 값 유지)">`
+      : kind === 'money' ? `<input data-op="${path}" data-ot="money" class="money-in" inputmode="numeric" value="${v ? moneyVal(v) : ''}">`
+      : `<input data-op="${path}" data-ot="num" type="number" step="any" value="${v ?? ''}">`;
+    return `<div class="field"><label>${label}</label><div class="unit">${inp}<span>${unit}</span></div>${hint ? `<span class="hint">${hint}</span>` : ''}</div>`;
+  };
+  const sel = (label, path, opts) => `<div class="field"><label>${label}</label><select data-op="${path}" data-ot="sel">${opts.map(([k, l]) => `<option value="${k}" ${opGet(path) === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+  $('operatingCard').innerHTML = `<h2>운영형 사업 조건 <span class="sub">개발 → 보유·운영 → 매각 · 연 단위 · 연차별 값은 쉼표로 입력 (이후 마지막 값 유지)</span></h2>
+    <div class="formgrid">
+      <div class="section-title">기간 · 자금 투입</div>
+      ${fld('개발 기간', 'dev_years', '년', 'num', '운영 전 (공사 포함)')}${fld('보유·운영 기간', 'hold_years', '년')}
+      ${fld('총사업비 연도 배분', 'cost_split_pct_by_year', '%', 'list', 'Unlevered IRR용 (합 100)')}${fld('자기자본 연도 배분', 'equity_split_pct_by_year', '%', 'list')}
+      <div class="section-title">호텔 <label class="check" style="display:inline-flex;margin-left:8px"><input type="checkbox" data-op="hotel.enabled" data-ot="bool" ${h.enabled ? 'checked' : ''}> 포함</label></div>
+      ${fld('객실 수', 'hotel.rooms', '실')}${fld('객실 점유율', 'hotel.occupancy_pct_by_year', '%', 'list', '램프업: 예) 70, 75, 80')}
+      ${fld('1년차 ADR', 'hotel.adr_year1', '원', 'money', '객실 평균 판매단가')}${fld('ADR 상승률', 'hotel.adr_growth_pct', '%/년')}
+      ${fld('기타 객실매출', 'hotel.room_other_pct', '% (객실매출)')}${fld('식음(F&B) 매출', 'hotel.fnb_pct_of_room_by_year', '% (객실매출)', 'list')}
+      ${fld('부대 매출', 'hotel.other_revenue_pct_of_room', '% (객실매출)')}${fld('객실 부서비용', 'hotel.rooms_cost_pct_by_year', '% (객실매출)', 'list')}
+      ${fld('기타객실 부서비용', 'hotel.room_other_cost_pct', '%')}${fld('식음 부서비용', 'hotel.fnb_cost_pct', '% (F&B)')}${fld('부대 부서비용', 'hotel.other_cost_pct', '% (부대매출)')}
+      ${(h.undistributed || []).map((u, i) => fld('비배분: ' + esc(u.name), `hotel.undistributed.${i}.pct_by_year`, '% (총매출)', 'list')).join('')}
+      ${fld('기본 운영수수료', 'hotel.base_fee_pct', '% (총매출)')}${fld('인센티브 수수료', 'hotel.incentive_fee_pct', '% (AGOP)')}
+      ${fld('보험료', 'hotel.insurance_pct', '% (총매출)')}${fld('FF&E 적립', 'hotel.ffe_reserve_pct', '% (총매출)')}
+      <div class="section-title">운영사업 · 임대 라인 <button class="addrow" data-op-add="1">+ 라인</button></div>
+      <div class="field full"><div class="tablewrap"><table class="edit"><thead><tr><th>이름</th><th>방식</th><th class="r">1년차 매출</th><th class="r">운영비 %</th><th class="r">임대면적(평)</th><th class="r">평당 월임대료</th><th class="r">임대율 %</th><th class="r">성장 %</th><th class="r">개시 연차</th><th></th></tr></thead><tbody>
+      ${(o.lines || []).map((l, i) => `<tr><td><input data-op="lines.${i}.name" data-ot="text" value="${esc(l.name)}"></td>
+        <td><select data-op="lines.${i}.kind" data-ot="sel"><option value="business" ${l.kind === 'business' ? 'selected' : ''}>운영사업</option><option value="lease" ${l.kind === 'lease' ? 'selected' : ''}>임대</option></select></td>
+        <td><input data-op="lines.${i}.revenue_year1" data-ot="money" class="money-in" style="text-align:right" value="${moneyVal(l.revenue_year1 || 0)}"></td>
+        <td><input data-op="lines.${i}.${l.kind === 'lease' ? 'opex_pct' : 'cost_pct'}" data-ot="num" type="number" step="any" style="text-align:right" value="${l.kind === 'lease' ? l.opex_pct : l.cost_pct}"></td>
+        <td><input data-op="lines.${i}.area_py" data-ot="num" type="number" step="any" style="text-align:right" value="${l.area_py || 0}"></td>
+        <td><input data-op="lines.${i}.rent_per_py_month" data-ot="money" class="money-in" style="text-align:right" value="${moneyVal(l.rent_per_py_month || 0)}"></td>
+        <td><input data-op="lines.${i}.occupancy_pct" data-ot="num" type="number" step="any" style="text-align:right" value="${l.occupancy_pct ?? 95}"></td>
+        <td><input data-op="lines.${i}.growth_pct" data-ot="num" type="number" step="any" style="text-align:right" value="${l.growth_pct ?? 2}"></td>
+        <td><input data-op="lines.${i}.start_year" data-ot="num" type="number" style="text-align:right" value="${l.start_year ?? 1}"></td>
+        <td><button class="del" data-op-del="${i}" title="삭제">✕</button></td></tr>`).join('') || '<tr><td colspan="10" class="c muted">라인이 없습니다 (전시장·상가·오피스 등)</td></tr>'}
+      </tbody></table></div><span class="hint">운영사업: 1년차 매출 × (1 − 운영비%) · 임대: 면적 × 월임대료 × 12 × 임대율 × (1 − 운영비%)</span></div>
+      <div class="section-title">보유세 · 금융 · 매각</div>
+      ${fld('운영기 보유세 (1년차)', 'property_tax_year1', '원', 'money', '재산세·종부세 (건물+토지)')}${fld('보유세 증가율', 'property_tax_growth_pct', '%/년')}
+      ${sel('준공 후 대출', 'debt_mode', [['carry', '건설 대출 유지 (이자만, 매각 시 상환)'], ['refinance', '담보대출 전환']])}
+      ${fld('전환 담보대출 금리', 'refi_rate_pct', '%')}${fld('원금 분할 상환', 'refi_amort_years', '년', 'num', '0 = 만기일시')}
+      ${fld('매각 환원율 (Cap)', 'exit_cap_pct', '%')}${sel('매각 NOI', 'exit_noi_basis', [['trailing', '보유 마지막 해 NOI'], ['forward', '매각 다음 해 NOI']])}
+      ${fld('매각 비용', 'sale_cost_pct', '%')}${fld('준공 시점 평가 환원율', 'valuation_cap_pct', '%', 'num', '1년차 NOI ÷ Cap')}
+      ${fld('건물분 비율 (감가상각)', 'building_ratio_pct', '%')}${fld('내용연수', 'depreciation_years', '년')}${fld('NPV 할인율', 'discount_rate_pct', '%')}
+      <div class="section-title">판정 기준</div>
+      ${fld('Yield on Cost', 'yield_min_pct', '% 이상')}${fld('최저 DSCR', 'dscr_min', '배 이상')}${fld('Equity IRR', 'irr_min_pct', '% 이상')}
+    </div>`;
+}
+function renderOperating() {
+  const R = lastPf.operating;
+  if (!R) { $('operatingResult').innerHTML = ''; return; }
+  $('sBep').previousElementSibling.textContent = 'Yield on Cost (1년차)'; $('sBep').textContent = pct(R.yield_on_cost_pct, 2);
+  const m = v => fmt(v / 1e6, 0);
+  const hotel = pf.operating?.hotel?.enabled && pf.operating.hotel.rooms > 0;
+  $('operatingResult').innerHTML = `<div class="card"><h2>운영형 수지 (보유·운영 ${pf.operating.hold_years}년 후 매각) <span class="sub">${esc((R.notes || []).join(' · '))}</span></h2>
+    <div class="stats">
+      <div class="stat hl"><small>Equity IRR (${pf.corporate_tax?.enabled ? '법인세 반영' : '세전 · 법인세 미반영'})</small><strong>${pct(R.equity_irr_pct)}</strong><em>Multiple ${R.equity_multiple != null ? fmt(R.equity_multiple, 2) + '배' : '–'} · NPV ${krw(R.equity_npv)}</em></div>
+      <div class="stat"><small>Unlevered IRR</small><strong>${pct(R.unlevered_irr_pct)}</strong><em>자기자본 회수 ${R.payback_year ? '운영 ' + R.payback_year + '년차' : '보유기간 내 미회수'}</em></div>
+      <div class="stat"><small>Yield on Cost (1년차 NOI ÷ 총사업비)</small><strong>${pct(R.yield_on_cost_pct, 2)}</strong><em>1년차 NOI ${krw(R.noi_year1)} · 안정화 ${krw(R.stabilized_noi)}</em></div>
+      <div class="stat"><small>최저 DSCR</small><strong class="${R.min_dscr != null && R.min_dscr < 1 ? 'neg' : ''}">${R.min_dscr != null ? fmt(R.min_dscr, 2) + '배' : '차입 없음'}</strong><em>NOI ÷ 원리금</em></div>
+      <div class="stat"><small>매각가 (NOI ÷ Cap ${fmt(pf.operating.exit_cap_pct, 2)}%)</small><strong>${krw(R.exit_value)}</strong><em>대출 상환 ${krw(R.exit_debt_repaid)} · 순회수 ${krw(R.exit_net_to_equity)}</em></div>
+    </div>
+    <div class="grid2"><table><tbody>
+      <tr><td>개발비 (금융비 제외)</td><td class="r">${krwW(R.dev_cost)}</td></tr>
+      <tr><td>금융비 (건설기간 이자·수수료 등)</td><td class="r">${krwW(R.finance_cost)}</td></tr>
+      <tr class="total"><td>총사업비</td><td class="r"><b>${krwW(R.total_cost)}</b></td></tr>
+      <tr><td>자기자본${R.extra_equity ? ' (+ 부족분 추가 출자)' : ''}</td><td class="r">${krwW(R.equity)}${R.extra_equity ? ' + ' + krw(R.extra_equity) : ''}</td></tr>
+      <tr><td>대출</td><td class="r">${krwW(R.debt)} <span class="muted">LTC ${pct(R.ltc_pct)}</span></td></tr>
+    </tbody></table><table><tbody>
+      <tr><td>준공 시점 가치 (1년차 NOI ÷ ${fmt(pf.operating.valuation_cap_pct, 2)}%)</td><td class="r">${krwW(R.value_at_completion)}</td></tr>
+      <tr><td>개발이익 (준공 가치 − 총사업비)</td><td class="r ${R.dev_margin < 0 ? 'minus' : ''}">${krwW(R.dev_margin)}</td></tr>
+      <tr><td>매각 NOI</td><td class="r">${krwW(R.exit_noi)}</td></tr>
+      <tr><td>매각 비용 · 양도 법인세</td><td class="r">${krw(R.exit_sale_cost)} · ${krw(R.exit_gain_tax)}</td></tr>
+      <tr><td>장부가 (매각 시)</td><td class="r">${krwW(R.book_value)}</td></tr>
+    </tbody></table></div>
+    <h3>연도별 운영 수지 (백만원)</h3><div class="tablewrap"><table><thead><tr><th>연차</th>${hotel ? '<th class="r">점유율</th><th class="r">ADR(원)</th><th class="r">호텔 매출</th><th class="r">GOP</th><th class="r">호텔 NOI</th>' : ''}<th class="r">운영·임대 매출</th><th class="r">운영·임대 이익</th><th class="r">보유세</th><th class="r">NOI</th><th class="r">이자</th><th class="r">원금</th><th class="r">DSCR</th><th class="r">법인세</th><th class="r">자기자본 CF</th></tr></thead><tbody>
+    ${R.rows.map(x => `<tr><td>${x.year}년차</td>${hotel ? `<td class="r">${pct(x.occupancy_pct)}</td><td class="r">${fmt(x.adr)}</td><td class="r">${m(x.hotel_revenue)}</td><td class="r">${m(x.gop)} <span class="muted">${x.gop_pct != null ? fmt(x.gop_pct, 1) + '%' : ''}</span></td><td class="r">${m(x.hotel_noi)}</td>` : ''}
+      <td class="r">${m(x.line_revenue)}</td><td class="r">${m(x.line_op)}</td><td class="r">${m(x.property_tax)}</td><td class="r"><b>${m(x.noi)}</b></td><td class="r">${m(x.interest)}</td><td class="r">${m(x.principal)}</td>
+      <td class="r ${x.dscr != null && x.dscr < 1 ? 'minus' : ''}">${x.dscr != null ? fmt(x.dscr, 2) : '–'}</td><td class="r">${m(x.tax)}</td><td class="r ${x.cash_flow < 0 ? 'minus' : 'money'}">${m(x.cash_flow)}</td></tr>`).join('')}
+    <tr class="total"><td>매각</td><td colspan="${hotel ? 13 : 8}" class="muted">매각가 ${krw(R.exit_value)} − 매각비용 ${krw(R.exit_sale_cost)} − 대출 상환 ${krw(R.exit_debt_repaid)} − 양도 법인세 ${krw(R.exit_gain_tax)}</td><td class="r money">${m(R.exit_net_to_equity)}</td></tr>
+    </tbody></table></div></div>`;
+}
 /* 공공지원민간임대 결과 */
 function renderRental() {
   const R = lastPf.rental;
@@ -1088,15 +1239,17 @@ function autoApplyFar(announce) {
   return true;
 }
 function updateMode() {
-  const redev = pf.project_mode === 'redevelopment', rent = pf.project_mode === 'rental';
+  const redev = pf.project_mode === 'redevelopment', rent = pf.project_mode === 'rental', op = pf.project_mode === 'operating';
   $('redevCard').classList.toggle('hidden', !redev);
   $('rentalCard').classList.toggle('hidden', !rent);
-  $('saleCondCard').classList.toggle('hidden', rent);
+  $('operatingCard').classList.toggle('hidden', !op);
+  renderOperatingCard();
+  $('saleCondCard').classList.toggle('hidden', rent || op);
   $('unitTable').classList.toggle('rental-mode', rent);
   if ($('rtDep')) $('rtDep').textContent = pf.rental?.depreciation_years ?? 40;
-  document.querySelector('#pfTabs [data-tab="units"]').lastChild.textContent = rent ? '임대 계획' : '분양 계획';
-  document.querySelector('#pfTabs [data-tab="sens"]').classList.toggle('hidden', rent);
-  document.querySelector('#pfTabs [data-tab="cf"]').classList.toggle('hidden', rent);
+  document.querySelector('#pfTabs [data-tab="units"]').lastChild.textContent = rent ? '임대 계획' : op ? '운영 계획' : '분양 계획';
+  document.querySelector('#pfTabs [data-tab="sens"]').classList.toggle('hidden', rent || op);
+  document.querySelector('#pfTabs [data-tab="cf"]').classList.toggle('hidden', rent || op);
 }
 function renderCases() {
   const rc = lastPf?.redevelopment?.cases || [];
@@ -1154,7 +1307,7 @@ function renderCfPf() {
     ['cost_land', '토지비'], ['cost_construction', '공사비'], ['cost_other', '기타 사업비'], ['vat_net', '부가세(순)'], ['taxes', '법인세 등'], ['finance', '금융비용'],
     ['equity', '자기자본'], ['draw', '대출 인출'], ['repay', '대출 상환'], ['loan_balance', '대출 잔액'], ['cash', '월말 현금']];
   const val = (r, k) => k === 'cost_other' ? r.cost_indirect + r.cost_charges + r.cost_sales + r.cost_taxes + r.cost_admin + r.cost_contingency
-    : k === 'vat_net' ? r.vat_input + r.vat_paid : k === 'taxes' ? r.corporate_tax + r.local_tax : k === 'finance' ? r.interest + r.fees + r.midpay_interest
+    : k === 'vat_net' ? r.vat_input + r.vat_paid : k === 'taxes' ? r.corporate_tax + r.local_tax : k === 'finance' ? r.interest + r.fees + r.midpay_interest + (r.cost_finance || 0)
     : k === 'equity' ? r.equity_in + r.extra_equity : r[k];
   out.innerHTML = `<div class="stats">
       <div class="stat hl"><small>금융비용 합계 (실제 잔액 기준)</small><strong>${krwW(cf.finance_total)}</strong><em>이자 ${krw(cf.interest_total)} · 수수료 ${krw(cf.fee_total)} · 중도금이자 ${krw(cf.midpay_interest_total)}</em></div>
@@ -1189,7 +1342,7 @@ function cfPfChart(rows) {
 const CF_IN = [['deposit', '계약금'], ['midpay', '중도금'], ['balance_pay', '잔금'], ['other_income', '기타 수입'], ['midpay_recovery', '중도금이자 회수'],
   ['equity_in', '자기자본 투입'], ['extra_equity', '추가 자기자본'], ['draw', '대출 인출']];
 const CF_OUT = [['cost_land', '토지비'], ['cost_construction', '공사비'], ['cost_indirect', '설계·감리·용역비'], ['cost_charges', '부담금·인입비'],
-  ['cost_sales', '분양·판매비'], ['cost_taxes', '제세공과금'], ['cost_admin', '일반관리비'], ['cost_contingency', '예비비'], ['vat_input', '매입세액'],
+  ['cost_sales', '분양·판매비'], ['cost_taxes', '제세공과금'], ['cost_admin', '일반관리비'], ['cost_contingency', '예비비'], ['cost_finance', '금융비(수수료·신탁 등)'], ['vat_input', '매입세액'],
   ['vat_paid', '부가세 납부(−환급)'], ['corporate_tax', '법인세'], ['local_tax', '지방소득세'], ['midpay_interest', '중도금 대출이자'],
   ['interest', 'PF·브릿지 이자'], ['fees', '취급수수료'], ['repay', '대출 상환']];
 function cfCsvText(rows) {

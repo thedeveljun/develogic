@@ -199,7 +199,7 @@
         <div class="formgrid">
           <div class="full row3">
             <div class="field"><label>사업명</label><input id="p_project_name" data-pf></div>
-            <div class="field"><label>사업 방식</label><select id="p_project_mode" data-pf><option value="developer">시행사 자체사업</option><option value="redevelopment">정비사업 (조합: 가로주택·재건축 등)</option><option value="rental">공공지원민간임대 (10년 임대 후 매각)</option></select></div>
+            <div class="field"><label>사업 방식</label><select id="p_project_mode" data-pf><option value="developer">시행사 자체사업</option><option value="redevelopment">정비사업 (조합: 가로주택·재건축 등)</option><option value="rental">공공지원민간임대 (10년 임대 후 매각)</option><option value="operating">운영형 (호텔·임대상가 등 보유·운영 후 매각)</option></select></div>
             <div class="field"><label>총 사업기간</label><div class="unit"><input id="p_duration_months" type="number" min="1" inputmode="numeric" data-pf><span>개월</span></div><span class="hint">월 운영비 산정</span></div>
           </div>
           <div class="section-title">면적</div>
@@ -297,6 +297,7 @@
       </table></div>
       <p class="muted" style="font-size:13.5px;margin:10px 0 0">※ 공동주택 전용 85㎡ 이하(국민주택규모)는 부가세 면세, 85㎡ 초과 주택·오피스텔·상가는 <b>건물분</b>에 부가세 10%가 과세됩니다 (토지분 면세).</p>
     </div>
+    <div class="card accent hidden" id="operatingCard"></div>
     <div class="card accent hidden" id="rentalCard">
       <h2>공공지원민간임대 운영 조건 <span class="sub">민간임대주택법 · 시행규칙 별표1·2 · 지특법 제31조의3 · 주택도시기금 (2026-11-16 확인)</span></h2>
       <div class="formgrid">
@@ -471,6 +472,7 @@
   <div class="pf-tab hidden" data-tab="result">
     <div class="card accent" id="verdictCard"></div>
     <div id="rentalResult"></div>
+    <div id="operatingResult"></div>
     <div id="redevResult"></div>
     <div id="pfWarnings"></div>
     <div class="grid-side">
