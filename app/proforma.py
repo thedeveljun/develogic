@@ -97,8 +97,8 @@ class CostItem(BaseModel):
 
 class HoldingTax(BaseModel):
     """토지 보유세(재산세·종부세) 자동 산정 설정 — auto_holding."""
-    mode: Literal['separate', 'special', 'general'] = Field(
-        default='separate', description='분리과세(주택건설사업 승인 토지 0.2%) / 별도합산(상업·업무용 건축 부지) / 종합합산(나대지)')
+    mode: Literal['auto', 'separate', 'special', 'general'] = Field(
+        default='auto', description='자동(공동주택 사업 → 분리과세, 그 밖 → 별도합산) / 분리과세(주택건설사업 승인 토지 0.2%) / 별도합산(상업·업무용 건축 부지) / 종합합산(나대지)')
     base: Literal['official', 'purchase'] = Field(default='official', description='과세 기준: 개별공시지가 / 토지 매입가(공시지가 미입력 시 대용)')
     years: int | None = Field(default=None, ge=0, le=20, description='과세 연수 (비우면 토지 잔금~입주 기간으로 계산)')
     fair_ratio_pct: Decimal = Field(default=D(70), ge=0, le=100, description='재산세 공정시장가액비율 (토지 70%)')
@@ -463,9 +463,14 @@ def _costs(p: Proforma, rev: dict):
         from . import levies
         indirect_all = sum((a for a, c in zip(amounts, p.costs) if a is not None and c.category == 'indirect'), ZERO)
         adj = 1 + p.price_adjust_pct / 100
+        seen: dict[str, int] = {}
         for i, c in enumerate(p.costs):
             if not c.basis.startswith('auto_'):
                 continue
+            if c.basis in seen and c.basis not in ('auto_sewer', 'auto_water'):   # 같은 법정 항목을 두 줄로 넣으면 이중 계상
+                amounts[i], details[i] = ZERO, f'중복: 「{p.costs[seen[c.basis]].name}」 줄에서 이미 전액 산정 (재산세·종부세는 한 줄로 함께 계산) — 이 줄은 0'
+                continue
+            seen[c.basis] = i
             if c.basis == 'auto_school':
                 a, d = levies.school_levy(p, adj)
             elif c.basis == 'auto_metro':
@@ -490,7 +495,7 @@ def _costs(p: Proforma, rev: dict):
                 a, d = levies.holding_tax(p, purchase)
             amounts[i], details[i] = a, d
         for i, c in enumerate(p.costs):   # 개발부담금: 개발비용 = 공사비 + 설계·감리·용역 + 부담금 (법정 자동 포함)
-            if c.basis == 'auto_dev_charge':
+            if c.basis == 'auto_dev_charge' and seen.get('auto_dev_charge') == i:
                 dev = sum((x for x, cc in zip(amounts, p.costs) if x is not None and cc.category in ('construction', 'indirect', 'charges')
                            and cc.basis != 'auto_dev_charge'), ZERO)
                 amounts[i], details[i] = levies.dev_charge(p, dev)
@@ -1137,6 +1142,7 @@ def _compliance(p: Proforma) -> dict:
     has_ot = any(u.kind == 'officetel' for u in p.units)
     zones = st.zones or []
     items, allowed_gfa, allowed_fp, zrows, far_area = [], ZERO, ZERO, [], ZERO
+    res_part = []   # (용도지역, 주거·준주택 부분 용적률 상한, 주거비율, 근거) — 지구단위계획이 있어도 조례 제한으로 따로 점검
     for z in zones:
         r = lawdata.resolve(st.province, st.municipality, z.zone)
         far, bcr = r['far'], r['bcr']
@@ -1170,6 +1176,7 @@ def _compliance(p: Proforma) -> dict:
                         far = mf
                 elif lim.get('far_res_part'):
                     share = residential_share(p, include_officetel=True)
+                    res_part.append((z.zone, lim['far_res_part'], share, lim.get('mixed_src') or '조례'))
                     if lim.get('res_max') is not None and share > lim['res_max']:
                         items.append({'name': f'주거복합 비주거 비율 ({z.zone})', 'status': 'bad',
                                       'detail': f"주거비율 {share:.1f}% — 조례 {lim.get('mixed_src') or ''}는 주거 외 용도를 연면적의 {100 - lim['res_max']:g}% 이상 두도록 정합니다 (주거비율 {lim['res_max']:g}% 이하)."})
@@ -1216,6 +1223,12 @@ def _compliance(p: Proforma) -> dict:
                       'detail': f'계획 {float(plan_far_v):.2f}% / 허용 {float(allow_far):.2f}% (지상 연면적 {float(p.above_gfa_sqm):,.1f}㎡, 허용 {float(allowed_gfa):,.1f}㎡) · 근거: ' + basis})
         if plan_res:
             items += plan_res['items']
+        for zname, lim_part, share, src in res_part:
+            part_far = plan_far_v * D(str(share)) / 100
+            items.append({'name': f'주거·오피스텔 부분 용적률 ({zname})', 'status': 'ok' if part_far <= D(str(lim_part)) + D('0.01') else 'bad',
+                          'plan': float(part_far), 'limit': lim_part,
+                          'detail': f'계획 {float(part_far):.1f}% (전체 {float(plan_far_v):.2f}% × 주거·오피스텔 비율 {share:.1f}%, 분양면적 기준) / '
+                                    f'조례 {src} 상한 {lim_part:g}% — 지구단위계획 용적률과 별도로 지켜야 함. 설계 바닥면적으로 확인하세요.'})
         if st.building_area_sqm is not None:
             plan_bcr = st.building_area_sqm / p.land_area_sqm * 100
             allow_bcr = allowed_fp / zone_area * 100 if zone_area else ZERO

@@ -197,7 +197,39 @@ const CAT_BASES = {
   contingency: ['pct_total', 'pct_construction', 'pct_direct', 'pct_construction_total', 'pct_sales_net', 'fixed'],
   finance: ['fixed', 'pct_sales_net', 'pct_sales', 'pct_land_purchase', 'pct_land', 'pct_construction_total', 'monthly'],
 };
-const basesFor = (cat, cur) => { const l = CAT_BASES[cat] || Object.keys(BASES); return l.includes(cur) ? l : [...l, cur]; };
+// 항목 이름 → 법정 산정 기준 (이름이 법정 항목이면 그 법정 기준 하나와 「정액」만, 아니면 법정 기준은 보이지 않음)
+const LEGAL_RULES = [
+  [/수수료|법무|대행|컨설팅|용역/, null],   // 보존등기 제수수료·법무사 등은 세금이 아님
+  [/상\s*하수도/, null],                    // 상수도·하수도 합산 항목은 단가 기준이 달라 정액 유지
+  [/보존\s*등기|건물\s*(?:분\s*)?취득/, 'auto_preservation'],
+  [/재산세|종부세|종합\s*부동산세|보유세/, 'auto_holding'],
+  [/국민\s*주택\s*채권|주택\s*채권|채권\s*할인/, 'auto_housing_bond'],
+  [/학교\s*용지/, 'auto_school'],
+  [/광역\s*교통/, 'auto_metro'],
+  [/하수도|오수/, 'auto_sewer'],
+  [/상수도/, 'auto_water'],
+  [/개발\s*부담금/, 'auto_dev_charge'],
+  [/미술\s*작품|예술\s*장식|미술\s*장식/, 'auto_art'],
+  [/취득\s*세|취득\s*제세|취\s*[·ㆍ.]?\s*등록세|등록\s*면허세/, 'auto_land_tax'],
+];
+const legalBasis = name => { for (const [re, b] of LEGAL_RULES) if (re.test(name || '')) return b; return null; };
+const basesFor = (cat, cur, name) => {
+  const legal = legalBasis(name);
+  if (legal) return [legal, 'fixed', ...(cur && cur !== legal && cur !== 'fixed' ? [cur] : [])];   // 법정 항목: 법정 자동 / 직접 입력(정액)
+  const l = (CAT_BASES[cat] || Object.keys(BASES)).filter(b => !b.startsWith('auto_'));
+  return l.includes(cur) ? l : [...l, cur];
+};
+// 저장된 산정 기준이 이름과 맞지 않는 법정 기준이면 바로잡음 (예: 토지매입비가 '법정: 토지 취득세'로 잘못 선택된 경우 → 정액)
+function fixLegalBases(p) {
+  let n = 0;
+  (p.costs || []).forEach(c => {
+    if (!c.basis.startsWith('auto_')) return;
+    const legal = legalBasis(c.name);
+    if (c.basis === legal) return;
+    c.basis = legal || 'fixed'; if (!legal) c.value = 0; n++;
+  });
+  return n;
+}
 
 let pf = null, lastPf = null, pfTimer = null, pfSeq = 0, pfUnit = 1e6, sensMode = 'margin';
 const collapsed = new Set();
@@ -238,6 +270,8 @@ function pfLoad(payload, silent) {
   if (!pf.midpay.mode) pf.midpay.mode = pf.midpay.enabled === false ? 'with_interest' : 'interest_free';
   pf.midpay.enabled = true;   // 방식(mode)으로 구분 pf.corporate_tax = pf.corporate_tax || { enabled: false, brackets: [] };
   pf.units = pf.units || []; pf.costs = pf.costs || []; pf.loans = pf.loans || [];
+  const fixed = fixLegalBases(pf);
+  if (fixed) setTimeout(() => notice(`항목 이름과 맞지 않는 법정 산정 기준 ${fixed}건을 바로잡았습니다 (법정 대상이 아닌 항목 → 정액). 금액을 확인하세요.`, true), 300);
   pf.costs.forEach(c => { c.timing = 'auto'; });
   pf.project_mode = pf.project_mode || 'developer';
   pf.site = { province: null, municipality: null, zones: [], incentive_far_pct: 0, building_area_sqm: null, plan_parking: null, parking_area_per_space: 33, flags: [], auto_far: true, parcels: [], ...(pf.site || {}) };
@@ -309,7 +343,7 @@ function renderCostCards() {
       <div class="tablewrap"><table class="edit"><thead><tr><th style="width:150px;min-width:150px">항목</th><th style="width:195px;min-width:195px">산정 기준</th><th class="r" style="width:185px;min-width:185px">입력값</th><th class="r" style="width:100px;min-width:100px">산출 금액</th><th style="min-width:110px">비고</th><th></th></tr></thead><tbody>
       ${rows.map(([c, i]) => `<tr>
         <td><input data-c="${i}" data-k="name" value="${esc(c.name)}" title="${esc(c.name)}"></td>
-        <td><select data-c="${i}" data-k="basis">${basesFor(key, c.basis).map(b => `<option value="${b}" ${c.basis === b ? 'selected' : ''}>${(BASES[b] || [b])[0]}</option>`).join('')}</select>${kindSelect(c, i)}</td>
+        <td><select data-c="${i}" data-k="basis">${basesFor(key, c.basis, c.name).map(b => `<option value="${b}" ${c.basis === b ? 'selected' : ''}>${(BASES[b] || [b])[0]}</option>`).join('')}</select>${kindSelect(c, i)}</td>
         <td>${AUTO_NOVALUE.has(c.basis) ? `<div class="unit"><input disabled value="법령·조례 기준" style="text-align:right;color:var(--muted)" title="입력값 없이 법령·조례로 자동 계산"><span>자동</span></div>`
           : `<div class="unit"><input class="${isPct(c.basis) ? '' : 'money-in'}" style="text-align:right" ${isPct(c.basis) ? 'type="number" step="any"' : 'inputmode="numeric"'} data-c="${i}" data-k="value" value="${isPct(c.basis) ? c.value : fmt(c.value, 2)}" ${c.basis === 'auto_sewer' ? 'placeholder="지자체 공고 단가"' : c.basis === 'auto_water' ? 'placeholder="조례 내장 지역은 비워도 됨"' : c.basis === 'auto_preservation' ? 'placeholder="비우면 공사비 기준" title="과표 단가(원/평) × 연면적 — 비우면 공사비·설계감리 합계를 과세표준으로"' : c.basis === 'auto_art' ? 'placeholder="표준건축비"' : ''}><span>${c.basis === 'auto_preservation' ? '원/평' : (BASES[c.basis] || ['', ''])[1]}</span></div>`}</td>
         <td class="r money" data-amt="${i}">–</td>
@@ -336,7 +370,7 @@ function autoSettings(basis) {
   const wrap = x => `<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:13px;margin-bottom:4px">${x}</div>`;
   if (basis === 'auto_holding') {
     const h = pf.holding || {};
-    return wrap(`과세 ${sel('hd_mode', [['separate', '분리과세 (주택건설 승인 토지 0.2%)'], ['special', '별도합산 (상업·업무 건축 부지)'], ['general', '종합합산 (나대지)']], h.mode || 'separate')}
+    return wrap(`과세 ${sel('hd_mode', [['auto', '자동 (공동주택 → 분리과세, 그 밖 → 별도합산)'], ['separate', '분리과세 (주택건설 승인 토지 0.2%)'], ['special', '별도합산 (상업·업무 건축 부지)'], ['general', '종합합산 (나대지)']], h.mode || 'auto')}
       기준 ${sel('hd_base', [['official', '공시지가'], ['purchase', '토지 매입가']], h.base || 'official')}
       공정시장가액비율 ${num('hd_fair_ratio_pct', h.fair_ratio_pct ?? 70, '70', 60)}%
       과세 ${num('hd_years', h.years, '자동', 60)}년
@@ -457,6 +491,18 @@ $('view-proforma').addEventListener('input', e => {
   else return;
   pfRecalc();
 });
+// 항목 이름을 다 쓰면(포커스 이동) 법정 항목은 해당 법정 산정 기준으로 자동 전환
+$('view-proforma').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.c === undefined || t.dataset.k !== 'name') return;
+  const c = pf.costs[t.dataset.c], legal = legalBasis(c.name);
+  if (legal && c.basis !== legal && (c.basis !== 'fixed' || !c.value)) {   // 금액을 직접 넣은 정액은 그대로 둠
+    c.basis = legal; c.value = 0;
+    renderCostCards(); pfRecalc();
+    const need = { auto_housing_bond: ' 입력값에 채권 즉시매도 할인율(%)을 넣으세요.', auto_art: ' 입력값에 표준건축비(원/㎡)를 넣으세요.', auto_sewer: ' 입력값에 지자체 공고 단가를 넣으세요.' }[legal] || '';
+    notice(`「${c.name}」 → ${BASES[legal][0].replace('⚖ ', '')}으로 자동 산정합니다.${need}`);
+  } else if (!legal && c.basis.startsWith('auto_')) { c.basis = 'fixed'; c.value = 0; renderCostCards(); pfRecalc(); }
+});
 $('view-proforma').addEventListener('click', e => {
   const t = e.target;
   if (t.dataset.delU !== undefined) { pf.units.splice(t.dataset.delU, 1); renderUnits(); pfRecalc(); }
@@ -538,7 +584,7 @@ function renderArea() {
     ['대지면적', a.land_sqm, a.land_py], ['지상 연면적', a.above_gfa_sqm, PY(a.above_gfa_sqm)], ['지하 연면적', a.below_gfa_sqm, PY(a.below_gfa_sqm)],
     ['전체 연면적', a.above_gfa_sqm + a.below_gfa_sqm, a.gfa_py], ['분양(공급)면적', a.supply_py * 400 / 121, a.supply_py],
   ].map(([n, s, p]) => `<tr><td>${n}</td><td class="r">${fmt(s, 1)} ㎡</td><td class="r money">${fmt(p, 1)} 평</td></tr>`).join('')
-    + `<tr><td>용적률</td><td class="r" colspan="2"><b>${pct(a.far_pct, 2)}</b></td></tr><tr><td>세대·호수</td><td class="r" colspan="2"><b>${fmt(a.units)}</b> <span class="muted">(주거 ${fmt(a.residential_units)})</span></td></tr>`;
+    + `<tr><td>용적률</td><td class="r" colspan="2"><b>${pct(a.far_pct, 2)}</b></td></tr>${unitCountRow(a)}`;
 }
 function renderPnl() {
   const r = lastPf; if (!r) return; const s = r.summary, rv = r.revenue, sp = r.area.supply_py, u = pfUnit;
@@ -578,6 +624,15 @@ function renderKpi() {
     ['ROE (세후이익/자기자본)', pct(s.roe_pct)],
   ];
   $('kpiTable').tBodies[0].innerHTML = rows.map(([n, v]) => `<tr><td>${n}</td><td class="r"><b>${v}</b></td></tr>`).join('');
+}
+// 세대·호수: 층·용도별로 묶어 1건(호수 1)으로 넣은 분양 줄은 실제 호실 수가 아니므로 따로 표시
+function unitCountRow(a) {
+  const lumps = (pf.units || []).filter(u => Number(u.count) === 1 && Number(u.supply_sqm) >= 300);
+  if (!lumps.length)
+    return `<tr><td>세대·호수</td><td class="r" colspan="2"><b>${fmt(a.units)}</b> <span class="muted">(주거 ${fmt(a.residential_units)})</span></td></tr>`;
+  const real = (pf.units || []).filter(u => !lumps.includes(u)).reduce((s, u) => s + Number(u.count || 0), 0);
+  return `<tr><td>세대·호수</td><td class="r" colspan="2" title="분양 타입 표에서 「${esc(lumps.map(u => u.name).join('」, 「'))}」은 층·용도 전체를 호수 1로 묶어 입력한 줄입니다. 호실별로 나누어 입력하면 실제 호수가 표시됩니다.">`
+    + (real ? `<b>${fmt(real)}</b> + ` : '') + `<span class="muted">층·용도별 일괄 ${lumps.length}건 (호실 수 미입력)</span></td></tr>`;
 }
 function renderRev() {
   const rv = lastPf.revenue;
@@ -675,7 +730,7 @@ $('pfSample').onclick = async () => {
         await api('PUT', siteUrl(curSite, `/proforma?scenario=${encodeURIComponent(today + ' 템플릿 적용 전 백업')}&memo=${encodeURIComponent('「' + label + '」 템플릿 적용 전 자동 보관')}`), pf);
       t.project_name = pf.project_name; t.site = { ...t.site, ...pf.site };
       scaleTemplate(t, Number(pf.land_area_sqm) || t.land_area_sqm);
-    }
+    } else blankSite(t);   // 사업지 미선택: 템플릿의 예시 지역·용도지역은 넣지 않음
     t.template_key = sel.value;
     pfLoad(t, false); loadOrdinance(false); renderScnSelect();
     notice(`「${label}」 템플릿을 적용했습니다. ${info ? info.note : ''}`);
@@ -1809,7 +1864,7 @@ $('portfolio').addEventListener('click', async e => {
       await api('DELETE', siteUrl(n));
       notice(`‘${n}’ 사업지를 삭제했습니다.`);
       await loadSites();
-      if (!curSite && siteList.length) await selectSite(siteList[0].name);   // 현재 사업지를 지웠으면 첫 사업지로 전환
+      if (!curSite) { if (siteList.length) await selectSite(siteList[0].name); else await loadBlank(); }   // 현재 사업지를 지웠으면 첫 사업지로, 남은 게 없으면 빈 화면
     } catch (err) { notice(err.message, true); }
     return;
   }
@@ -1825,6 +1880,16 @@ $('siteCreate').onclick = async () => {
     applyRegion(reg); go('sites'); notice(`사업지 폴더를 만들었습니다 (${reg.province} ${reg.municipality} 조례 적용). 토지이용계획확인서·필지목록을 넣어 주세요.`); }
   catch (err) { notice(err.message, true); }
 };
+// 템플릿의 예시 사업지 정보(안양시·제2종일반주거 10,000㎡ 등)를 비운다 — 숫자 구성(분양·사업비·일정)만 예시로 남김
+function blankSite(p, name = '') {
+  p.project_name = name;
+  p.site = { ...(p.site || {}), address: '', parcels: [], province: null, municipality: null, zones: [], flags: [],
+    building_area_sqm: null, plan_parking: null, incentive_far_pct: 0, auto_far: true, plan: { kind: 'none' } };
+  return p;
+}
+async function loadBlank() {   // 사업지 미선택: 빈 사업지 정보 + 템플릿 구성 (저장 안 됨)
+  try { pfLoad(blankSite(await api('GET', '/sample?name=proforma')), true); loadOrdinance(false); } catch { notice('템플릿을 불러오지 못했습니다.', true); }
+}
 async function selectSite(name) {
   if (name === curSite && pf) return;
   clearTimeout(saveTimer);
@@ -1835,8 +1900,7 @@ async function selectSite(name) {
     const j = await api('GET', siteUrl(name, '/proforma'));
     let p = j.proforma;
     if (!p) {   // 처음 여는 사업지: 템플릿 + 자료함 분석값으로 시작
-      p = await api('GET', '/sample?name=proforma');
-      p.project_name = name;
+      p = blankSite(await api('GET', '/sample?name=proforma'), name);
       try {
         const d = await api('GET', siteUrl(name)); lastSite = d; const s = d.summary;
         if (s.total_area_sqm) {
@@ -1852,7 +1916,8 @@ async function selectSite(name) {
             zones: s.by_zone.filter(z => z.zone !== '미확인').map(z => ({ zone: z.zone, area_sqm: Math.round(z.area_sqm * 100) / 100 })) };
         }
       } catch { /* 자료 없음 */ }
-      notice(`‘${name}’ 사업수지를 템플릿으로 시작합니다. 자료함 값(대지·용도지역)을 반영했습니다.`);
+      notice(lastSite?.summary?.total_area_sqm ? `‘${name}’ 사업수지를 템플릿으로 시작합니다. 자료함 값(대지·용도지역)을 반영했습니다.`
+        : `‘${name}’ 새 사업지입니다. 사업지 주소를 입력해 대지면적·용도지역을 조회하세요.`);
     }
     pfLoad(p, true); savedSnap = j.proforma ? JSON.stringify(pf) : null; loadOrdinance(!j.proforma);
   } catch (err) { notice(err.message, true); }
@@ -2185,8 +2250,9 @@ function cfChart(M) {
   await loadSites();
   const pref = store.get('develogic.site', null);
   if (pref && siteList.some(s => s.name === pref)) await selectSite(pref);
-  else {   // 사업지 미선택: 템플릿으로 화면만 구성 (저장 안 됨)
-    try { pfLoad(await api('GET', '/sample?name=proforma'), true); loadOrdinance(false); } catch { notice('템플릿을 불러오지 못했습니다.', true); }
+  else {   // 사업지 미선택(또는 지난번 사업지가 삭제됨): 빈 사업지 정보로 화면만 구성 (저장 안 됨)
+    if (pref) store.set('develogic.site', '');
+    await loadBlank();
   }
   try { cfSet(await api('GET', '/sample?name=general')); } catch { cfSet({ project_type: 'general_housing', start: today, end: today, loans: [], events: [] }); }
 })();
@@ -2215,6 +2281,12 @@ function ezGo(n) {
   window.scrollTo(0, 0);
 }
 function easyEnter() { ezGo(ezStep || 1); }
+// 처음 사용 안내: 닫으면 이 브라우저에 기억, 「❓ 사용 안내」로 다시 열기
+function guideShow(on) { $('guideCard').classList.toggle('hidden', !on); $('guideOpenWrap').classList.toggle('hidden', on); store.set('develogic.guideHidden', !on); }
+guideShow(!store.get('develogic.guideHidden', false));
+$('guideClose').onclick = () => guideShow(false);
+$('guideOpen').onclick = () => guideShow(true);
+$('guideStart').onclick = () => { if (ezStep !== 1) ezGo(1); const t = $('ezNewToggle'); if (t.getAttribute('aria-expanded') !== 'true') t.click(); setTimeout(() => { const i = document.querySelector('#view-easy [data-ez="1"] input:not([type=hidden])'); i?.focus(); i?.scrollIntoView({ block: 'center' }); }, 50); };
 document.addEventListener('click', e => { const b = e.target.closest('[data-ez-go]'); if (b) ezGo(Number(b.dataset.ezGo)); const s = e.target.closest('#ezSteps li'); if (s && Number(s.dataset.ez) <= ezStep + 1) ezGo(Number(s.dataset.ez)); });
 
 /* 1단계 */

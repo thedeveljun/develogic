@@ -221,18 +221,23 @@ def holding_tax(p, purchase: Decimal = ZERO) -> tuple[Decimal, str]:
             months = p.duration_months
         years = max(1, math.ceil(D(months) / 12))
     std = value * h.fair_ratio_pct / 100
-    if h.mode == 'separate':
+    mode, why = h.mode, ''
+    if mode == 'auto':   # 지방세법 제106조: 주택건설사업 승인 토지 → 분리과세, 건축 중·상업업무용 건축물 부속토지 → 별도합산
+        apt = any(u.kind == 'apartment' for u in p.units)
+        mode = 'separate' if apt else 'special'
+        why = ' [자동: 공동주택 사업 → 분리과세]' if apt else ' [자동: 비주택(업무·상업·오피스텔 등) 건축 부지 → 별도합산]'
+    if mode == 'separate':
         prop, label = std * D('0.002'), '분리과세 0.2%'
         comp = ZERO
     else:
-        prop = _progressive(std, PROPERTY_SPECIAL if h.mode == 'special' else PROPERTY_GENERAL)
-        label = '별도합산 0.2~0.4%' if h.mode == 'special' else '종합합산 0.2~0.5%'
-        ded, table = COMP_SPECIAL if h.mode == 'special' else COMP_GENERAL
+        prop = _progressive(std, PROPERTY_SPECIAL if mode == 'special' else PROPERTY_GENERAL)
+        label = '별도합산 0.2~0.4%' if mode == 'special' else '종합합산 0.2~0.5%'
+        ded, table = COMP_SPECIAL if mode == 'special' else COMP_GENERAL
         comp = _progressive(max(value - ded, ZERO), table) * D('1.2') if h.comprehensive else ZERO
     per_year = prop * D('1.2') + std * D('0.0014') + comp
     return per_year * years, (f'{src} {float(value) / 1e8:,.1f}억 × {float(h.fair_ratio_pct):g}% → 재산세 {label}(+교육세 20%) + 도시지역분 0.14%'
                               + (f' + 종부세 {float(comp) / 1e6:,.1f}백만/년(농특세 포함)' if comp else '')
-                              + f' × {years}년' + (' (사업계획승인 후 분리과세 가정 — 승인 전·비주택은 별도/종합합산)' if h.mode == 'separate' else ''))
+                              + f' × {years}년' + why + (' (사업계획승인 후 분리과세 가정 — 승인 전·비주택은 별도/종합합산)' if h.mode == 'separate' else ''))
 
 
 def housing_bond(p, purchase: Decimal, discount_pct: Decimal) -> tuple[Decimal, str]:

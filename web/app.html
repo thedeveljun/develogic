@@ -59,6 +59,27 @@
     <main>
 <!-- ═══════════════ 간편 분석 (4단계) ═══════════════ -->
 <section class="view" id="view-easy">
+  <!-- 처음 사용 안내 (닫으면 브라우저에 기억, 「❓ 사용 안내」로 다시 열기) -->
+  <div class="card accent guide-card" id="guideCard">
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <h2 style="margin:0 0 4px">처음 사용하시나요? 이 화면 하나면 됩니다</h2>
+        <p class="muted" style="margin:0">아래 4단계를 순서대로 따라가면 「이 땅에서 이 사업을 해도 되는지」까지 나옵니다. 입력한 내용은 자동 저장됩니다.</p>
+      </div>
+      <button type="button" class="btn ghost" id="guideClose" title="안내 닫기 (위쪽 「❓ 사용 안내」로 다시 열 수 있음)">닫기 ✕</button>
+    </div>
+    <ol class="guide-steps">
+      <li><b>사업지 만들고 주소 입력</b><span>[＋ 새 사업지]로 이름을 정하고 지번 주소를 조회하면 면적·용도지역·공시지가가 자동으로 채워집니다. 필지가 여러 개면 계속 추가하세요.</span></li>
+      <li><b>건물 용도 고르기</b><span>아파트·오피스텔·지식산업센터 등 카드 하나를 고릅니다. <span class="chip ok">추천</span> 표시가 이 땅에 맞는 용도입니다. 규모·사업비·일정은 자동으로 채워집니다.</span></li>
+      <li><b>숫자 3개만 고치기</b><span><b>땅값 · 공사비 · 분양가</b>를 시세·견적으로 바꾸세요. 고칠 때마다 결과가 바로 바뀝니다.</span></li>
+      <li><b>결과 확인</b><span>이익·이익률과 「적합 / 검토 / 부적합」 판정이 나옵니다. 용적률 초과 같은 법규 문제도 함께 알려 줍니다.</span></li>
+    </ol>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+      <button type="button" class="btn" id="guideStart">＋ 새 사업지로 시작하기</button>
+      <span class="muted" style="font-size:13px">더 자세히 볼 때만: 사업비 항목 하나하나 → <a href="#proforma">사업수지 분석</a> · 건폐율·용적률·주차 → <a href="#feasibility">사업지 법규 검토</a> · 여러 사업지 비교 → <a href="#overview">사업지 현황</a></span>
+    </div>
+  </div>
+  <div style="text-align:right;margin:-4px 0 6px" id="guideOpenWrap" class="hidden"><button type="button" class="btn ghost" id="guideOpen" style="font-size:13px">❓ 사용 안내</button></div>
   <ol class="ez-steps" id="ezSteps">
     <li data-ez="1"><span>1</span><div><b>사업지 주소</b><small>땅 정보 자동 조회</small></div></li>
     <li data-ez="2"><span>2</span><div><b>건물 용도</b><small>무엇을 지을까</small></div></li>

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .config import DB
 LAW_BASE = 'https://www.law.go.kr'
-PARSER_VERSION = 5   # 5: 원문 오기 허용(제1전용·보존·센트)·줄 안에 이어진 항목, 4: 자치법규 검색 보조·관리계획 조례·별표 묶음(이름 없음·별지서식·1~19)·100분의 표기·주거부분 용적률 합계(대구)
+PARSER_VERSION = 6   # 6: ②항 이하 주거복합건물 주거·오피스텔 부분 용적률(과천 제58조③), 5: 원문 오기 허용(제1전용·보존·센트)·줄 안에 이어진 항목, 4: 자치법규 검색 보조·관리계획 조례·별표 묶음(이름 없음·별지서식·1~19)·100분의 표기·주거부분 용적률 합계(대구)
 UA = {'User-Agent': 'Mozilla/5.0 (DeveLogic feasibility prototype)'}
 
 # ── 국가 기준 (국토계획법 시행령 [시행 2026.9.18.] 대통령령 제36587호) ──
@@ -237,7 +237,7 @@ def _apartment_value(item: str, general: float) -> float | None:
     return None
 
 
-def parse_items(body: str, key: str, limits: dict) -> int:
+def parse_items(body: str, key: str, limits: dict, nos: dict | None = None) -> int:
     '''「1. 제1종전용주거지역 : 100퍼센트 이하 …」 목록 → limits[용도지역][key …]. 판독한 항목 수를 돌려준다.'''
     n = 0
     # 성주: '… 125퍼센트 이하. 20. 농림지역 : …' 처럼 줄바꿈 없이 이어진 항목을 나눈다
@@ -257,6 +257,8 @@ def parse_items(body: str, key: str, limits: dict) -> int:
         general = float(v.group(1).replace(',', ''))
         rec = limits.setdefault(zone, {})
         rec[key] = general
+        if nos is not None:
+            nos[zone] = int(parts[i])   # 제1항 호 번호 (②항 이하 '제1항제7호부터 제9호까지' 대응용)
         n += 1
         apt = _apartment_value(item, general)
         if apt is None and re.search(r'주택법\s*시행령.{0,40}?사업계획의?\s*승인', item):   # 창원: 주택법 사업계획승인 대상은 별도
@@ -275,6 +277,33 @@ def parse_items(body: str, key: str, limits: dict) -> int:
     return n
 
 
+_RES_PART_PARA = re.compile(r'주거용?\s*(?:용도)?\s*(?:및\s*오피스텔)?[^.。]{0,30}?(?:사용되는|쓰이는)\s*부분의\s*용적률(?:\s*\([^)]*\))?\s*(?:을|은|는)\s*' + _PCT + r'\s*이하')
+_HO_RANGE = re.compile(r'제\s*1\s*항\s*제\s*(\d+)\s*호(?:\s*부터\s*(?:제\s*1\s*항\s*)?제\s*(\d+)\s*호\s*까지)?')
+
+
+def parse_res_part_paragraph(article: str, paras: list[str], limits: dict, nos_by_zone: dict) -> None:
+    """용적률 조문 ②항 이하의 주거복합건물 주거 부분 용적률 (과천 제58조③:
+    '제1항제7호부터 제9호까지의 상업지역 … 주거복합건물은 주거용 및 오피스텔로 사용되는 부분의 용적률을 400퍼센트 이하로 한다')
+    → 해당 호의 용도지역에 far_res_part."""
+    for para in paras:
+        if not re.search(r'주거\s*복합|주상\s*복합', para):
+            continue
+        t = _korean_numbers(para)
+        m = _RES_PART_PARA.search(t)
+        if not m:
+            continue
+        nos = set()
+        for a, b in _HO_RANGE.findall(t[:m.start()]):
+            nos.update(range(int(a), int(b or a) + 1))
+        val = float(m.group(1).replace(',', ''))
+        src = f"{article}{para[:1] if para[:1] in '②③④⑤⑥⑦⑧⑨⑩' else ''}"
+        for zone, rec in limits.items():
+            hit = nos_by_zone.get(zone) in nos if nos else (zone.endswith('상업지역') and '상업지역' in t[:m.start()])
+            if hit:
+                rec['far_res_part'] = val
+                rec['mixed_src'] = src
+
+
 def parse_ordinance(text: str) -> dict:
     limits: dict[str, dict] = {}
     articles, warnings = {}, []
@@ -286,7 +315,10 @@ def parse_ordinance(text: str) -> dict:
         articles[key] = a[0]
         if a[2]:
             articles[key + '_more'] = [re.sub(r'\s+', ' ', x).strip()[:400] for x in re.split(r'\n\s*(?=[②③④⑤⑥⑦⑧⑨⑩])', a[2]) if x.strip()][:8]
-        parse_items(a[1], key, limits)
+        nos: dict[str, int] = {}
+        parse_items(a[1], key, limits, nos)
+        if key == 'far' and a[2]:
+            parse_res_part_paragraph(a[0], articles.get('far_more') or [], limits, nos)
     # 국가 기준 범위 검증 (판독 오류 방지)
     for zone, rec in limits.items():
         b, lo, hi = NATIONAL[zone]

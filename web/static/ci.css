@@ -584,3 +584,11 @@ select.need{border-color:#c0392b!important;box-shadow:0 0 0 3px rgba(192,57,43,.
 #ezPTable th:nth-child(9),#ezPTable td:nth-child(9){width:130px;min-width:130px;text-align:center}
 #ezPTable td:nth-child(9) .btn{padding:5px 14px}
 .multi #siteOpen,.multi #pwCard{display:none !important}
+
+/* 처음 사용 안내 (간편 분석 맨 위) */
+.guide-card{margin-bottom:14px}
+.guide-steps{list-style:none;counter-reset:g;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:14px 0 0;padding:0}
+.guide-steps li{counter-increment:g;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px 12px 50px;position:relative;font-size:14px;line-height:1.55}
+.guide-steps li::before{content:counter(g);position:absolute;left:14px;top:12px;width:26px;height:26px;border-radius:50%;background:var(--action);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.guide-steps li b{display:block;margin-bottom:3px;font-size:15px}
+.guide-steps li > span{color:var(--muted)}
