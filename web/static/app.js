@@ -2552,6 +2552,22 @@ document.addEventListener('click', e => {
 });
 $('mapClose').onclick = () => { $('mapBack').classList.add('hidden'); pickMode = false; $('mapCanvas').classList.remove('picking'); if (pickSel) { pmap.removeLayer(pickSel); pickSel = null; } };
 
+/* 현재 위치 (브라우저 위치 정보 · 사무실 PC 는 Wi-Fi·인터넷 기준이라 수십 m~수백 m 오차). 권한 거부·시간 초과면 null */
+let myPosCache = null, myMarker = null;
+function myPos(fresh = false) {
+  if (myPosCache && !fresh) return Promise.resolve(myPosCache);
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => { myPosCache = { lat: p.coords.latitude, lon: p.coords.longitude }; res(myPosCache); },
+      () => res(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 600000 });
+  });
+}
+function showMyPos(c) {
+  if (myMarker) pmap.removeLayer(myMarker);
+  myMarker = L.circleMarker([c.lat, c.lon], { radius: 8, color: '#fff', weight: 3, fillColor: '#e8590c', fillOpacity: 1, interactive: false }).addTo(pmap);
+}
+
 /* 지도에서 필지 선택: 지도를 누르면 그 자리의 필지(연속지적도)를 보여 주고 「＋ 이 필지 추가」로 간편 분석에 추가 */
 let pickMode = false, pickSel = null, pickAdded = [];
 async function openParcelPicker() {
@@ -2559,7 +2575,12 @@ async function openParcelPicker() {
   pickAdded = [];
   $('mapBack').classList.remove('hidden');
   $('mapTitle').textContent = `지도에서 필지 선택 · ${curSite}`;
-  $('mapExt').innerHTML = '';
+  $('mapExt').innerHTML = '<button type="button" class="btn secondary" id="pickMyPos" title="지금 이 컴퓨터의 위치(사무실)로 지도를 옮깁니다">📍 현재 위치</button>';
+  $('pickMyPos').onclick = async () => {
+    const c = await myPos(true);
+    if (c) { pmap.setView([c.lat, c.lon], 17); showMyPos(c); }
+    else notice('현재 위치를 알 수 없습니다. 브라우저 주소창의 위치 권한을 「허용」으로 바꿔 주세요.', true);
+  };
   pickSide('<div class="muted">지도를 불러오는 중…</div>');
   try {
     await loadLeaflet();
@@ -2577,6 +2598,10 @@ async function openParcelPicker() {
       r.features.forEach(f => { if (f.geometry) L.geoJSON(f, { style: { color: '#1e7b3a', weight: 2, fillColor: '#1e7b3a', fillOpacity: .25 }, interactive: false })
         .bindTooltip(String(f.properties.idx + 1), { permanent: true, direction: 'center', className: 'pmap-num' }).addTo(pmapShapes); });
       if (pmapShapes.getLayers().length) { pmap.fitBounds(pmapShapes.getBounds(), { padding: [60, 60], maxZoom: 18 }); placed = true; }
+    }
+    if (!placed) {   // 필지가 아직 없으면 현재 위치(사무실)에서 시작 → 안 되면 사업지 지역 → 서울
+      const me = await myPos();
+      if (me) { pmap.setView([me.lat, me.lon], 17); showMyPos(me); placed = true; }
     }
     if (!placed) {
       const q = [pf?.site?.province, pf?.site?.municipality].filter(Boolean).join(' ') || guessRegion(curSite) && Object.values(guessRegion(curSite)).join(' ') || '';
