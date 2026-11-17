@@ -11,7 +11,7 @@
 #
 # 업체·아이디는 배포 후 웹에서 운영자(아이디 develogic)로 로그인해 [CI 가이드·설정] 화면에서 만든다.
 # 최대 1대로 돌린다 (자료를 파일로 저장하므로 서버가 둘이면 서로 덮어쓸 수 있음).
-param([string]$Project = 'develogic-pilot')
+param([string]$Project = 'funclub-develogic')   # 시범 운영 중 (develogic-pilot 은 결제 한도로 보류)
 
 $ErrorActionPreference = 'Stop'
 $gcloud = Join-Path $env:LOCALAPPDATA 'Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd'
