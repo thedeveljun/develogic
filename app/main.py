@@ -22,14 +22,15 @@ app.mount('/static', StaticFiles(directory=WEB / 'static'), name='static')
 from urllib.parse import quote as _quote
 from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from . import auth
+from . import auth, config
 
-_PUBLIC = ('/login', '/api/v4/auth/login', '/static/', '/favicon.ico')
+_PUBLIC = ('/login', '/api/v4/auth/login', '/api/v4/auth/mode', '/static/', '/favicon.ico', '/healthz')
 
 
 @app.middleware('http')
 async def _guard(request: Request, call_next):
     path = request.url.path
+    user = auth.user_of(request) if config.MULTI else None
     role = auth.role_of(request)
     if not role and not path.startswith(_PUBLIC):
         if path.startswith('/api/') or path in ('/openapi.json', '/docs', '/redoc'):
@@ -38,12 +39,32 @@ async def _guard(request: Request, call_next):
         return RedirectResponse('/login?next=' + _quote(path if path != '/login' else '/'), status_code=303)
     if role == 'staff' and auth.admin_only(request.method, path):
         return JSONResponse({'detail': '관리자만 할 수 있는 작업입니다 (직원 계정)'}, status_code=403)
+    if auth.operator_only(request.method, path) and not (user and user['role'] == 'operator'):
+        return JSONResponse({'detail': '운영자만 할 수 있는 작업입니다'}, status_code=403)
     request.state.role = role
-    return await call_next(request)
+    request.state.user = user
+    tok = config.TENANT.set(user['company'] if user else None)   # 업체별 자료함 (config.inbox)
+    try:
+        resp = await call_next(request)
+    finally:
+        config.TENANT.reset(tok)
+    if config.MULTI and path.startswith('/api/'):
+        try: config.sync_db()          # 조례 캐시가 바뀌었으면 버킷에 백업
+        except Exception: pass
+    return resp
+
+
+@app.get('/healthz')
+def healthz(): return {'ok': True}
+
+
+@app.get('/api/v4/auth/mode')
+def auth_mode(): return {'multi': config.MULTI}
 
 
 class _Pw(BaseModel):
     password: str
+    username: str = ''
 
 
 class _PwSet(BaseModel):
@@ -60,6 +81,16 @@ def login_page():
 
 @app.post('/api/v4/auth/login')
 def auth_login(body: _Pw, request: Request):
+    if config.MULTI:
+        try:
+            tok = auth.login_user(body.username, body.password, auth.client_ip(request))
+        except PermissionError as exc:
+            raise HTTPException(429, str(exc)) from exc
+        if not tok:
+            raise HTTPException(401, '아이디 또는 비밀번호가 맞지 않습니다')
+        r = JSONResponse({'ok': True})
+        r.set_cookie(auth.COOKIE, tok, max_age=auth.TTL, httponly=True, samesite='lax', secure=True)
+        return r
     if not auth.status()['admin_set']:
         raise HTTPException(403, '아직 접속 비밀번호가 설정되지 않았습니다. 프로그램이 설치된 PC에서 설정 화면 › 접속 비밀번호를 먼저 정하세요.')
     try:
@@ -95,6 +126,10 @@ def _lan_urls() -> list[str]:
 
 @app.get('/api/v4/auth/me')
 def auth_me(request: Request):
+    if config.MULTI:
+        u = request.state.user
+        return {'role': request.state.role, 'local': False, 'multi': True, 'operator': u['role'] == 'operator',
+                'uid': u['uid'], 'name': u['name'], 'company': u['company'], 'company_name': u['company_name']}
     return {'role': request.state.role, 'local': auth.is_local(request), **auth.status(),
             'lan_urls': _lan_urls() if request.state.role == 'admin' else []}
 
@@ -105,6 +140,66 @@ def auth_passwords(body: _PwSet):
         return auth.set_passwords(body.admin, body.staff, body.clear_staff, body.clear_all)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+# ── 클라우드: 내 비밀번호 · 업체/계정 관리 (운영자) ──
+class _OwnPw(BaseModel):
+    current: str
+    new: str
+
+
+@app.post('/api/v4/auth/my-password')
+def my_password(body: _OwnPw, request: Request):
+    if not config.MULTI:
+        raise HTTPException(404, '클라우드 계정에서만 씁니다')
+    try:
+        auth.change_own_password(request.state.user['uid'], body.current, body.new)
+    except PermissionError as exc: raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc: raise HTTPException(422, str(exc)) from exc
+    # 서명이 바뀌어 지금 세션도 끊기므로 새 쿠키를 준다
+    tok = auth.login_user(request.state.user['uid'], body.new, auth.client_ip(request))
+    r = JSONResponse({'ok': True})
+    r.set_cookie(auth.COOKIE, tok, max_age=auth.TTL, httponly=True, samesite='lax', secure=True)
+    return r
+
+
+class _Company(BaseModel):
+    id: str
+    name: str
+
+
+class _User(BaseModel):
+    uid: str
+    company: str
+    role: str = 'admin'
+    name: str = ''
+    password: str | None = None
+
+
+def _acct(fn, *a):
+    try: return fn(*a)
+    except LookupError as exc: raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc: raise HTTPException(422, str(exc)) from exc
+
+
+@app.get('/api/v4/accounts')
+def accounts_list(): return auth.list_accounts()
+
+
+@app.post('/api/v4/accounts/companies')
+def accounts_add_company(c: _Company): return _acct(auth.add_company, c.id, c.name)
+
+
+@app.delete('/api/v4/accounts/companies/{cid}')
+def accounts_del_company(cid: str): return _acct(auth.delete_company, cid)
+
+
+@app.put('/api/v4/accounts/users')
+def accounts_save_user(u: _User): return _acct(auth.save_user, u.uid, u.company, u.role, u.password or None, u.name)
+
+
+@app.delete('/api/v4/accounts/users/{uid}')
+def accounts_del_user(uid: str): return _acct(auth.delete_user, uid)
 
 
 # ── 웹 화면: 모든 화면은 하나의 앱 셸(app.html)에서 좌측 메뉴로 전환 ──
@@ -186,14 +281,26 @@ SAMPLES['garoju'] = 'garoju.json'
 SAMPLES['rental'] = 'rental.json'
 for _t in json.loads((ROOT / 'samples' / 'templates.json').read_text(encoding='utf-8')):   # 용도별 템플릿 (tools/build_templates.py)
     SAMPLES['tpl_' + _t['key']] = f"tpl_{_t['key']}.json"
+config.restore_db()        # 클라우드: 버킷의 조례 캐시 백업본을 /tmp 로
 lawdata.seed_builtin()
+if config.MULTI:
+    auth.ensure_operator()
 import threading as _th
 
 
 @app.on_event('startup')
 def _refresh_ordinances():   # 이전 판독기 결과 갱신 — 서버 시작 시에만 (테스트에서 import 할 때는 돌지 않게)
     _th.Thread(target=lawdata.refresh_stale, daemon=True, name='ordinance-refresh').start()
-documents.ensure_inbox()
+
+
+@app.on_event('shutdown')
+def _save_ordinances():
+    if config.MULTI:
+        config.sync_db()
+
+
+if not config.MULTI:       # 클라우드는 업체마다 첫 사용 때 만든다
+    documents.ensure_inbox()
 
 
 class Place(BaseModel):
@@ -274,7 +381,7 @@ def templates():
 
 
 @app.get('/api/v4/sites')
-def sites(): return {'inbox': str(documents.INBOX), 'sites': documents.list_sites()}
+def sites(): return {'inbox': '' if config.MULTI else str(documents.INBOX), 'sites': documents.list_sites()}
 
 
 @app.post('/api/v4/sites')
@@ -349,8 +456,11 @@ async def site_upload(name: str, files: list[UploadFile] = File(...)):
     saved = []
     for f in files:
         fn = Path(f.filename or '').name
-        if not fn or fn.startswith('.'): continue
-        (d / fn).write_bytes(await f.read())
+        if not fn or fn.startswith('.') or fn.startswith('~$'): continue
+        data = await f.read()
+        if len(data) > 30 * 1024 * 1024:
+            raise HTTPException(413, f'파일이 너무 큽니다 (30MB 이하): {fn}')
+        (d / fn).write_bytes(data)
         saved.append(fn)
     return {'saved': saved}
 

@@ -1242,6 +1242,7 @@ async function loadMe() {
   try {
     me = await api('GET', '/api/v4/auth/me');
     document.body.classList.toggle('role-staff', me.role === 'staff');
+    if (me.multi) { loadMeMulti(); return; }
     $('meRole').textContent = me.role === 'staff' ? '직원' : '관리자';
     $('srvText').textContent = me.local ? '이 PC · 로컬 서버' : me.role === 'staff' ? '조회·입력 권한' : '원격 접속';
     $('logoutBtn').classList.toggle('hidden', me.local);
@@ -1253,6 +1254,80 @@ async function loadMe() {
     $('lanUrls').innerHTML = me.lan_urls?.length ? `사무실 접속 주소: ${me.lan_urls.map(u => `<b>${esc(u)}</b>`).join(' · ')} (같은 사무실 네트워크에서만 · Windows 방화벽에서 8001 포트 허용 필요)` : '';
   } catch { /* 이전 서버 */ }
 }
+/* 클라우드(여러 업체): 업체 계정 · 운영자 관리 */
+function loadMeMulti() {
+  document.body.classList.add('multi');
+  $('meRole').textContent = me.company_name || me.company;
+  $('srvText').textContent = `${me.name || me.uid} · ${me.operator ? '운영자' : me.role === 'staff' ? '직원' : '관리자'}`;
+  $('logoutBtn').classList.remove('hidden');
+  $('pwCard').classList.add('hidden');
+  $('myPwCard').classList.remove('hidden');
+  $('myAcct').textContent = `아이디 ${me.uid} · ${me.company_name}`;
+  $('vwCard').classList.toggle('hidden', !me.operator);
+  $('acctCard').classList.toggle('hidden', !me.operator);
+  if (me.operator) loadAccounts();
+}
+const roleName = r => ({ operator: '운영자', admin: '관리자', staff: '직원' })[r] || r;
+function renderAccounts(d) {
+  const sel = $('acUcomp'), keep = sel.value;
+  sel.innerHTML = d.companies.map(c => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.id)})</option>`).join('');
+  if (keep) sel.value = keep;
+  $('acList').innerHTML = `<table><thead><tr><th>업체</th><th>아이디</th><th>이름</th><th>역할</th><th></th></tr></thead><tbody>${
+    d.companies.map(c => {
+      const head = `<td rowspan="${Math.max(1, c.users.length)}"><b>${esc(c.name)}</b><div class="muted" style="font-size:12.5px">${esc(c.id)} · ${esc(c.created || '')}</div>${
+        c.users.some(u => u.role === 'operator') ? '' : `<button class="btn ghost del-site" style="margin-top:6px" data-del-company="${esc(c.id)}">업체 삭제</button>`}</td>`;
+      if (!c.users.length) return `<tr>${head}<td colspan="4" class="muted">계정 없음 — 위에서 아이디를 만드세요</td></tr>`;
+      return c.users.map((u, i) => `<tr>${i ? '' : head}<td>${esc(u.uid)}</td><td>${esc(u.name)}</td><td>${roleName(u.role)}</td><td class="r">${
+        u.role === 'operator' ? '' : `<button class="btn ghost" data-edit-user="${esc(u.uid)}" data-c="${esc(u.company)}" data-n="${esc(u.name)}" data-r="${u.role}">수정</button> <button class="btn ghost del-site" data-del-user="${esc(u.uid)}">삭제</button>`}</td></tr>`).join('');
+    }).join('')}</tbody></table>`;
+  $('acList').querySelectorAll('[data-del-company]').forEach(b => b.onclick = async () => {
+    if (!await confirmBox('업체를 삭제할까요?', `<b>${esc(b.dataset.delCompany)}</b> 업체와 그 계정을 모두 지웁니다. 로그인한 사람은 바로 끊깁니다. (사업지 자료는 보관소에 남습니다)`, '삭제')) return;
+    try { renderAccounts(await api('DELETE', `/api/v4/accounts/companies/${encodeURIComponent(b.dataset.delCompany)}`)); notice('업체를 삭제했습니다.'); }
+    catch (err) { notice(err.message, true); }
+  });
+  $('acList').querySelectorAll('[data-del-user]').forEach(b => b.onclick = async () => {
+    if (!await confirmBox('계정을 삭제할까요?', `<b>${esc(b.dataset.delUser)}</b> 계정을 지웁니다. 로그인 중이면 바로 끊깁니다.`, '삭제')) return;
+    try { renderAccounts(await api('DELETE', `/api/v4/accounts/users/${encodeURIComponent(b.dataset.delUser)}`)); notice('계정을 삭제했습니다.'); }
+    catch (err) { notice(err.message, true); }
+  });
+  $('acList').querySelectorAll('[data-edit-user]').forEach(b => b.onclick = () => {
+    $('acUcomp').value = b.dataset.c; $('acUid').value = b.dataset.editUser; $('acUname').value = b.dataset.n; $('acUrole').value = b.dataset.r;
+    $('acUpw').value = ''; $('acUpw').focus(); notice('비밀번호를 비워 두면 기존 비밀번호가 유지됩니다.');
+  });
+}
+async function loadAccounts() {
+  try { renderAccounts(await api('GET', '/api/v4/accounts')); } catch (err) { notice(err.message, true); }
+}
+$('acAddCompany').onclick = async () => {
+  try {
+    renderAccounts(await api('POST', '/api/v4/accounts/companies', { id: $('acCid').value.trim(), name: $('acCname').value.trim() }));
+    $('acUcomp').value = $('acCid').value.trim().toLowerCase(); $('acCid').value = ''; $('acCname').value = '';
+    notice('업체를 추가했습니다. 아래에서 아이디를 만드세요.'); $('acUid').focus();
+  } catch (err) { notice(err.message, true); }
+};
+$('acGenPw').onclick = () => {
+  const abc = 'abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789', b = crypto.getRandomValues(new Uint32Array(10));
+  $('acUpw').value = Array.from(b, x => abc[x % abc.length]).join('');
+};
+$('acSaveUser').onclick = async () => {
+  const pw = $('acUpw').value.trim(), uid = $('acUid').value.trim().toLowerCase();
+  try {
+    renderAccounts(await api('PUT', '/api/v4/accounts/users', { uid, company: $('acUcomp').value, role: $('acUrole').value, name: $('acUname').value.trim(), password: pw || null }));
+    notice('계정을 저장했습니다.');
+    if (pw) {
+      const c = $('acUcomp').selectedOptions[0]?.textContent || '';
+      $('acIssued').innerHTML = `<b>업체에 전달할 접속 정보</b> (이 창을 벗어나면 비밀번호는 다시 볼 수 없습니다)<br>${esc(c)}<br>접속 주소: <b>${esc(location.origin)}</b><br>아이디: <b>${esc(uid)}</b> · 비밀번호: <b>${esc(pw)}</b>`;
+      $('acIssued').classList.remove('hidden');
+    }
+    $('acUid').value = ''; $('acUname').value = ''; $('acUpw').value = '';
+  } catch (err) { notice(err.message, true); }
+};
+$('myPwSave').onclick = async () => {
+  try {
+    await api('POST', '/api/v4/auth/my-password', { current: $('myPwCur').value, new: $('myPwNew').value });
+    $('myPwCur').value = ''; $('myPwNew').value = ''; notice('비밀번호를 바꿨습니다.');
+  } catch (err) { notice(err.message, true); }
+};
 $('logoutBtn').onclick = async () => { await api('POST', '/api/v4/auth/logout'); location.href = '/login'; };
 $('pwSave').onclick = async () => {
   const admin = $('pwAdmin').value, staff = $('pwStaff').value;

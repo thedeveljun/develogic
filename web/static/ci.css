@@ -583,3 +583,4 @@ select.need{border-color:#c0392b!important;box-shadow:0 0 0 3px rgba(192,57,43,.
 /* 간편 분석 필지 목록: 자동 조회 칸 넓힘 (아래 요약 박스는 표 폭을 따라 우측 끝 정렬 유지) */
 #ezPTable th:nth-child(9),#ezPTable td:nth-child(9){width:130px;min-width:130px;text-align:center}
 #ezPTable td:nth-child(9) .btn{padding:5px 14px}
+.multi #siteOpen,.multi #pwCard{display:none !important}

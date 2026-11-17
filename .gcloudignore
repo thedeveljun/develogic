@@ -1,0 +1,16 @@
+# Cloud Run 으로 올릴 때 빼는 것 (사업지 자료·비밀값·개발 파일)
+.git/
+.gitignore
+.gcloudignore
+.venv/
+.vscode/
+.claude/
+__pycache__/
+*.pyc
+data/
+자료함/
+tests/
+tools/
+docs/
+scripts/
+*.md

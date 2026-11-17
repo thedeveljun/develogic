@@ -1,0 +1,12 @@
+.git/
+.venv/
+.vscode/
+.claude/
+__pycache__/
+*.pyc
+data/
+자료함/
+tests/
+tools/
+docs/
+scripts/

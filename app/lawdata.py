@@ -15,7 +15,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-DB = Path(__file__).parent.parent / 'data' / 'ordinances.sqlite3'
+from .config import DB
 LAW_BASE = 'https://www.law.go.kr'
 PARSER_VERSION = 5   # 5: 원문 오기 허용(제1전용·보존·센트)·줄 안에 이어진 항목, 4: 자치법규 검색 보조·관리계획 조례·별표 묶음(이름 없음·별지서식·1~19)·100분의 표기·주거부분 용적률 합계(대구)
 UA = {'User-Agent': 'Mozilla/5.0 (DeveLogic feasibility prototype)'}

@@ -13,9 +13,30 @@ import re
 import shutil
 from pathlib import Path
 
+from . import config
+
 ROOT = Path(__file__).parent.parent
-INBOX = ROOT / '자료함'
-TEMPLATE_DIR = INBOX / '_양식'
+
+
+def _inbox() -> Path:          # 내 PC: 자료함/ · 클라우드: 업체별 자료함 (config.inbox)
+    return config.inbox()
+
+
+def _tpl_dir() -> Path:
+    return _inbox() / '_양식'
+
+
+def _trash() -> Path:
+    return _inbox() / '_삭제된 사업지'
+
+
+def __getattr__(name):         # 예전 이름 호환 (documents.INBOX 등)
+    if name == 'INBOX': return _inbox()
+    if name == 'TEMPLATE_DIR': return _tpl_dir()
+    if name == 'TRASH': return _trash()
+    raise AttributeError(name)
+
+
 TABLE_COLUMNS = ['소재지', '지번', '지목', '면적(㎡)', '용도지역', '개별공시지가(원/㎡)', '비고']
 
 ZONES = [
@@ -65,19 +86,19 @@ def safe_name(name: str) -> str:
 
 
 def site_dir(name: str) -> Path:
-    p = (INBOX / safe_name(name)).resolve()
-    if p.parent != INBOX.resolve():
+    p = (_inbox() / safe_name(name)).resolve()
+    if p.parent != _inbox().resolve():
         raise ValueError('잘못된 경로입니다')
     return p
 
 
 def ensure_inbox():
-    INBOX.mkdir(exist_ok=True)
-    TEMPLATE_DIR.mkdir(exist_ok=True)
-    tpl = TEMPLATE_DIR / '필지목록_양식.xlsx'
+    _inbox().mkdir(parents=True, exist_ok=True)
+    _tpl_dir().mkdir(exist_ok=True)
+    tpl = _tpl_dir() / '필지목록_양식.xlsx'
     if not tpl.exists():
         write_template(tpl)
-    readme = INBOX / '자료함_사용법.txt'
+    readme = _inbox() / '자료함_사용법.txt'
     if not readme.exists():
         readme.write_text(
             '자료함 사용법\n\n'
@@ -113,14 +134,14 @@ def create_site(name: str) -> dict:
     d.mkdir(exist_ok=True)
     tpl = d / '필지목록.xlsx'
     if not tpl.exists():
-        shutil.copy(TEMPLATE_DIR / '필지목록_양식.xlsx', tpl)
+        shutil.copy(_tpl_dir() / '필지목록_양식.xlsx', tpl)
     return {'name': d.name}
 
 
 def list_sites() -> list[dict]:
     ensure_inbox()
     out = []
-    for d in sorted(INBOX.iterdir()):
+    for d in sorted(_inbox().iterdir()):
         if d.is_dir() and not d.name.startswith(('_', '.')):
             files = [f for f in d.iterdir() if f.is_file() and not f.name.startswith(('~$', '.')) and f.name not in (PF_FILE, PF_RESULT)]
             out.append({'name': d.name, 'files': len(files),
@@ -146,26 +167,23 @@ def design_files(name: str) -> list[Path]:
     return out
 
 
-TRASH = INBOX / '_삭제된 사업지'
-
-
 def delete_site(name: str) -> dict:
     """사업지 삭제 = 자료함/_삭제된 사업지/ 로 이동 (영구 삭제 아님 · 복원 가능)."""
     d = site_dir(name)
     if not d.is_dir():
         raise FileNotFoundError(f'사업지가 없습니다: {name}')
-    TRASH.mkdir(exist_ok=True)
+    _trash().mkdir(exist_ok=True)
     from datetime import datetime
-    dest = TRASH / f"{d.name}__{datetime.now():%Y%m%d-%H%M%S}"
+    dest = _trash() / f"{d.name}__{datetime.now():%Y%m%d-%H%M%S}"
     shutil.move(str(d), str(dest))
     return {'name': d.name, 'trash': dest.name}
 
 
 def list_trash() -> list[dict]:
-    if not TRASH.is_dir():
+    if not _trash().is_dir():
         return []
     out = []
-    for d in sorted(TRASH.iterdir(), key=lambda x: -x.stat().st_mtime):
+    for d in sorted(_trash().iterdir(), key=lambda x: -x.stat().st_mtime):
         if d.is_dir():
             name, _, stamp = d.name.rpartition('__')
             out.append({'id': d.name, 'name': name or d.name, 'deleted': stamp, 'result': _read_json(d / PF_RESULT)})
@@ -174,16 +192,16 @@ def list_trash() -> list[dict]:
 
 def purge_site(trash_id: str) -> dict:
     """삭제된 사업지 폴더를 완전히 지운다 (복원 불가). 휴지통 안의 폴더만 허용."""
-    src = (TRASH / trash_id).resolve()
-    if src.parent != TRASH.resolve() or not src.is_dir():
+    src = (_trash() / trash_id).resolve()
+    if src.parent != _trash().resolve() or not src.is_dir():
         raise FileNotFoundError('삭제된 사업지를 찾지 못했습니다')
     shutil.rmtree(src)
     return {'id': trash_id}
 
 
 def restore_site(trash_id: str) -> dict:
-    src = (TRASH / trash_id).resolve()
-    if src.parent != TRASH.resolve() or not src.is_dir():
+    src = (_trash() / trash_id).resolve()
+    if src.parent != _trash().resolve() or not src.is_dir():
         raise FileNotFoundError('삭제된 사업지를 찾지 못했습니다')
     name = trash_id.rpartition('__')[0] or trash_id
     dest = site_dir(name)

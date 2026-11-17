@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-SETTINGS = Path(__file__).parent.parent / 'data' / 'settings.json'
+from .config import SETTINGS
 NED_URL = 'https://api.vworld.kr/ned/data/getLandCharacteristics'
 
 
