@@ -1,0 +1,279 @@
+{
+ "project_name": "템플릿 — 데이터센터 (개발 후 일괄매각) (예시 가정)",
+ "duration_months": 42,
+ "land_area_sqm": 6000,
+ "above_gfa_sqm": 12000,
+ "below_gfa_sqm": 2000,
+ "units": [
+  {
+   "name": "데이터센터 일괄매각 (IT 20MW)",
+   "kind": "datacenter",
+   "exclusive_sqm": 12000,
+   "supply_sqm": 14000,
+   "count": 1,
+   "price_per_py": 80800000
+  }
+ ],
+ "sales_rate_pct": 100,
+ "price_adjust_pct": 0,
+ "price_includes_vat": true,
+ "building_ratio_pct": 85,
+ "balcony_per_unit": 0,
+ "balcony_taxable": true,
+ "other_income": 0,
+ "costs": [
+  {
+   "category": "land",
+   "name": "토지매입비",
+   "basis": "per_land_py",
+   "value": 10000000,
+   "note": "준공업 (변전소 인접 부지 프리미엄) — 실거래로 교체"
+  },
+  {
+   "category": "land",
+   "name": "취득세 등 (토지)",
+   "basis": "auto_land_tax",
+   "value": 0,
+   "note": "지방세법: 토지 매매 4.6% (농지 3.4%) 자동"
+  },
+  {
+   "category": "land",
+   "name": "중개·법무 수수료",
+   "basis": "pct_land",
+   "value": 0.5,
+   "note": ""
+  },
+  {
+   "category": "construction",
+   "name": "직접공사비 (지상)",
+   "basis": "per_above_py",
+   "value": 9000000,
+   "note": "건축 골조·외장 (고하중·내진 특등급)"
+  },
+  {
+   "category": "construction",
+   "name": "직접공사비 (지하)",
+   "basis": "per_below_py",
+   "value": 6500000,
+   "note": "지하 굴착·흙막이·주차장"
+  },
+  {
+   "category": "construction",
+   "name": "전력·냉각 설비 (MEP: 수배전·UPS·발전기·냉동기)",
+   "basis": "fixed",
+   "value": 160000000000,
+   "note": "IT 1MW당 약 80억 가정 × 20MW — 설계 단계 견적으로 교체"
+  },
+  {
+   "category": "construction",
+   "name": "통신 인입 (다중 캐리어)",
+   "basis": "fixed",
+   "value": 2000000000,
+   "note": ""
+  },
+  {
+   "category": "indirect",
+   "name": "설계비",
+   "basis": "per_gfa_py",
+   "value": 150000,
+   "note": "건축·구조·설비·전기·조경"
+  },
+  {
+   "category": "indirect",
+   "name": "감리비",
+   "basis": "pct_construction",
+   "value": 2.5,
+   "note": "건축물 규모·용도별 감리 대가 기준"
+  },
+  {
+   "category": "indirect",
+   "name": "인허가·영향평가 용역",
+   "basis": "fixed",
+   "value": 400000000,
+   "note": "교통·환경·경관 심의 등"
+  },
+  {
+   "category": "indirect",
+   "name": "전력계통영향평가·인허가 용역",
+   "basis": "fixed",
+   "value": 1000000000,
+   "note": "분산에너지 활성화 특별법 전력계통영향평가 (대규모 전력수요)"
+  },
+  {
+   "category": "charges",
+   "name": "하수도 원인자부담금",
+   "basis": "auto_sewer",
+   "value": 0,
+   "note": "오수발생량 자동 × 지자체 공고 단위단가(입력값, 원/㎥)"
+  },
+  {
+   "category": "charges",
+   "name": "상수도 원인자부담금",
+   "basis": "auto_water",
+   "value": 0,
+   "note": "조례 구경별 부담액(안양 등 내장) 또는 세대당 부담액 입력"
+  },
+  {
+   "category": "charges",
+   "name": "한전 전력 인입 시설부담금",
+   "basis": "fixed",
+   "value": 10000000000,
+   "note": "전기공급약관 시설부담금 + 송전선로 — 한전 협의로 확정"
+  },
+  {
+   "category": "taxes",
+   "name": "보존등기 (건물 취득세 등)",
+   "basis": "auto_preservation",
+   "value": 0,
+   "note": "지방세법: 원시취득 2.8% + 농특·교육세 자동"
+  },
+  {
+   "category": "taxes",
+   "name": "재산세·종부세 등",
+   "basis": "fixed",
+   "value": 200000000,
+   "note": "사업기간 토지 보유세"
+  },
+  {
+   "category": "admin",
+   "name": "시행사 운영비",
+   "basis": "monthly",
+   "value": 40000000,
+   "note": "인건비·사무실·법무·회계"
+  },
+  {
+   "category": "admin",
+   "name": "신탁 수수료",
+   "basis": "pct_sales",
+   "value": 0.5,
+   "note": "관리형 토지신탁 (대주 요구 시)"
+  },
+  {
+   "category": "sales",
+   "name": "매각 자문 수수료",
+   "basis": "pct_sales",
+   "value": 1.0,
+   "note": "선매각 투자자 유치 (분양대행·모델하우스 없음)"
+  },
+  {
+   "category": "contingency",
+   "name": "예비비",
+   "basis": "pct_total",
+   "value": 2.0,
+   "note": ""
+  }
+ ],
+ "nondeductible_vat_pct": 0,
+ "equity": 67100000000,
+ "loans": [
+  {
+   "name": "브릿지론",
+   "amount": 26800000000,
+   "annual_rate_pct": 7.5,
+   "months": 8,
+   "utilization_pct": 100,
+   "fee_pct": 2.0,
+   "start_month": 0,
+   "maturity_month": 8
+  },
+  {
+   "name": "본PF",
+   "amount": 174400000000,
+   "annual_rate_pct": 6.5,
+   "months": 36,
+   "utilization_pct": 60,
+   "fee_pct": 2.5,
+   "start_month": 8,
+   "maturity_month": null
+  }
+ ],
+ "midpay": {
+  "enabled": true,
+  "mode": "with_interest",
+  "ratio_pct": 0,
+  "annual_rate_pct": 5.0,
+  "avg_months": 0,
+  "developer_share_pct": 0
+ },
+ "corporate_tax": {
+  "enabled": true,
+  "local_surtax_pct": 10,
+  "brackets": [
+   {
+    "up_to": 200000000,
+    "rate_pct": 10
+   },
+   {
+    "up_to": 20000000000,
+    "rate_pct": 20
+   },
+   {
+    "up_to": 300000000000,
+    "rate_pct": 22
+   },
+   {
+    "up_to": null,
+    "rate_pct": 25
+   }
+  ]
+ },
+ "schedule": {
+  "enabled": true,
+  "start_month": "2027-01",
+  "land_contract_pct": 10,
+  "land_balance_month": 3,
+  "construction_start_month": 8,
+  "construction_months": 30,
+  "curve": "s_curve",
+  "payment_lag_months": 1,
+  "retention_pct": 0,
+  "sales_start_month": 8,
+  "initial_sales_share_pct": 100,
+  "sales_period_months": 1,
+  "deposit_pct": 10,
+  "midpay_pct": 0,
+  "midpay_installments": 0,
+  "move_in_lag_months": 1,
+  "sweep_pct": 0,
+  "minimum_cash": 0,
+  "discount_rate_pct": 8,
+  "vat_settlement": true,
+  "corporate_tax_by_progress": true,
+  "sme": false
+ },
+ "site": {
+  "province": "경기도",
+  "municipality": "안양시",
+  "zones": [
+   {
+    "zone": "준공업지역",
+    "area_sqm": 6000
+   }
+  ],
+  "incentive_far_pct": 0,
+  "building_area_sqm": null,
+  "plan_parking": null,
+  "parking_area_per_space": 33,
+  "flags": [],
+  "parcels": [],
+  "address": "",
+  "plan": {
+   "kind": "none"
+  }
+ },
+ "criteria": {
+  "margin_min_pct": 12,
+  "margin_warn_pct": 5,
+  "bep_max_pct": 90,
+  "bep_warn_pct": 95,
+  "price_drop_min_pct": 10,
+  "equity_irr_min_pct": 12,
+  "ltc_max_pct": 85
+ },
+ "_template": {
+  "key": "datacenter",
+  "title": "데이터센터 (개발 후 일괄매각)",
+  "desc": "IT 20MW급 · 착공 시 투자자·운영사와 선매각(Forward Sale) · 전력 인입(한전)·수전·냉각 설비비가 사업비 대부분 · 전력계통영향평가",
+  "note": "분양가는 매출이익률 약 15%가 되도록 맞춘 예시값입니다. 토지가·분양가·공사비를 시세와 견적으로 반드시 바꾸세요."
+ }
+}

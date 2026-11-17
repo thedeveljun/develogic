@@ -1,0 +1,277 @@
+{
+  "project_name": "안양시 공동주택 신축사업 (가상 샘플)",
+  "duration_months": 48,
+  "land_area_sqm": 10000,
+  "above_gfa_sqm": 25000,
+  "below_gfa_sqm": 12000,
+  "units": [
+    {
+      "name": "59A",
+      "kind": "apartment",
+      "exclusive_sqm": 59.9,
+      "supply_sqm": 80,
+      "count": 120,
+      "price_per_py": 26000000
+    },
+    {
+      "name": "84A",
+      "kind": "apartment",
+      "exclusive_sqm": 84.9,
+      "supply_sqm": 112,
+      "count": 100,
+      "price_per_py": 26000000
+    },
+    {
+      "name": "114A",
+      "kind": "apartment",
+      "exclusive_sqm": 114.5,
+      "supply_sqm": 150,
+      "count": 10,
+      "price_per_py": 27000000
+    },
+    {
+      "name": "단지 내 상가",
+      "kind": "retail",
+      "exclusive_sqm": 300,
+      "supply_sqm": 500,
+      "count": 1,
+      "price_per_py": 30000000
+    }
+  ],
+  "sales_rate_pct": 100,
+  "price_adjust_pct": 0,
+  "price_includes_vat": true,
+  "building_ratio_pct": 60,
+  "balcony_per_unit": 15000000,
+  "balcony_taxable": true,
+  "other_income": 0,
+  "costs": [
+    {
+      "category": "land",
+      "name": "토지매입비",
+      "basis": "per_land_py",
+      "value": 12000000
+    },
+    {
+      "category": "land",
+      "name": "취득세 등 (토지)",
+      "basis": "pct_land",
+      "value": 4.6
+    },
+    {
+      "category": "land",
+      "name": "중개·법무 수수료",
+      "basis": "pct_land",
+      "value": 0.5
+    },
+    {
+      "category": "construction",
+      "name": "직접공사비 (지상)",
+      "basis": "per_above_py",
+      "value": 7500000
+    },
+    {
+      "category": "construction",
+      "name": "직접공사비 (지하)",
+      "basis": "per_below_py",
+      "value": 6000000
+    },
+    {
+      "category": "construction",
+      "name": "철거·인입·부대공사",
+      "basis": "fixed",
+      "value": 1000000000
+    },
+    {
+      "category": "indirect",
+      "name": "설계비",
+      "basis": "per_gfa_py",
+      "value": 150000
+    },
+    {
+      "category": "indirect",
+      "name": "감리비",
+      "basis": "pct_construction",
+      "value": 2.5
+    },
+    {
+      "category": "indirect",
+      "name": "인허가·영향평가 용역",
+      "basis": "fixed",
+      "value": 500000000
+    },
+    {
+      "category": "charges",
+      "name": "학교용지부담금",
+      "basis": "pct_apt_sales",
+      "value": 0.8
+    },
+    {
+      "category": "charges",
+      "name": "광역교통시설부담금",
+      "basis": "fixed",
+      "value": 1200000000
+    },
+    {
+      "category": "charges",
+      "name": "상하수도 원인자부담금",
+      "basis": "fixed",
+      "value": 800000000
+    },
+    {
+      "category": "sales",
+      "name": "분양대행 수수료",
+      "basis": "per_unit",
+      "value": 5000000
+    },
+    {
+      "category": "sales",
+      "name": "광고·홍보비",
+      "basis": "pct_sales",
+      "value": 1.0
+    },
+    {
+      "category": "sales",
+      "name": "모델하우스 (건립·운영)",
+      "basis": "fixed",
+      "value": 3000000000
+    },
+    {
+      "category": "sales",
+      "name": "분양보증 수수료",
+      "basis": "pct_sales",
+      "value": 0.3
+    },
+    {
+      "category": "taxes",
+      "name": "보존등기비 (건물 취득세 등)",
+      "basis": "pct_construction",
+      "value": 3.16
+    },
+    {
+      "category": "taxes",
+      "name": "재산세·종부세 등",
+      "basis": "fixed",
+      "value": 300000000
+    },
+    {
+      "category": "admin",
+      "name": "시행사 운영비",
+      "basis": "monthly",
+      "value": 50000000
+    },
+    {
+      "category": "admin",
+      "name": "신탁 수수료",
+      "basis": "pct_sales",
+      "value": 0.5
+    },
+    {
+      "category": "contingency",
+      "name": "예비비",
+      "basis": "pct_total",
+      "value": 2.0
+    }
+  ],
+  "nondeductible_vat_pct": 0,
+  "equity": 10000000000,
+  "loans": [
+    {
+      "name": "브릿지론",
+      "amount": 30000000000,
+      "annual_rate_pct": 7.5,
+      "months": 8,
+      "utilization_pct": 100,
+      "fee_pct": 2.0,
+      "start_month": 0,
+      "maturity_month": 8
+    },
+    {
+      "name": "본PF",
+      "amount": 90000000000,
+      "annual_rate_pct": 6.5,
+      "months": 36,
+      "utilization_pct": 60,
+      "fee_pct": 2.5,
+      "start_month": 8,
+      "maturity_month": null
+    }
+  ],
+  "midpay": {
+    "enabled": true,
+    "ratio_pct": 60,
+    "annual_rate_pct": 4.5,
+    "avg_months": 18,
+    "developer_share_pct": 100
+  },
+  "corporate_tax": {
+    "enabled": true,
+    "local_surtax_pct": 10,
+    "brackets": [
+      {
+        "up_to": 200000000,
+        "rate_pct": 10
+      },
+      {
+        "up_to": 20000000000,
+        "rate_pct": 20
+      },
+      {
+        "up_to": 300000000000,
+        "rate_pct": 22
+      },
+      {
+        "up_to": null,
+        "rate_pct": 25
+      }
+    ]
+  },
+  "schedule": {
+    "enabled": true,
+    "start_month": "2027-01",
+    "land_contract_pct": 10,
+    "land_balance_month": 3,
+    "construction_start_month": 8,
+    "construction_months": 30,
+    "curve": "s_curve",
+    "payment_lag_months": 1,
+    "retention_pct": 0,
+    "sales_start_month": 9,
+    "initial_sales_share_pct": 60,
+    "sales_period_months": 12,
+    "deposit_pct": 10,
+    "midpay_pct": 60,
+    "midpay_installments": 6,
+    "move_in_lag_months": 1,
+    "sweep_pct": 0,
+    "minimum_cash": 0,
+    "discount_rate_pct": 8,
+    "vat_settlement": true,
+    "corporate_tax_by_progress": true,
+    "sme": false
+  },
+  "site": {
+    "province": "경기도",
+    "municipality": "안양시",
+    "zones": [
+      {
+        "zone": "제2종일반주거지역",
+        "area_sqm": 10000
+      }
+    ],
+    "incentive_far_pct": 0,
+    "building_area_sqm": 2500,
+    "plan_parking": null,
+    "parking_area_per_space": 33,
+    "flags": []
+  },
+  "criteria": {
+    "margin_min_pct": 10,
+    "margin_warn_pct": 5,
+    "bep_max_pct": 80,
+    "bep_warn_pct": 90,
+    "price_drop_min_pct": 10,
+    "equity_irr_min_pct": 15,
+    "ltc_max_pct": 85
+  }
+}

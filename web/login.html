@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그인 · 디벨로직</title>
+<style>
+  :root{--navy:#111a2e;--blue:#1e88d6;--action:#0b78c2;--line:#d5dee4;--muted:#627887;--bad:#b3261e}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;
+       background:linear-gradient(160deg,#111a2e 0%,#1b2a47 55%,#0b78c2 140%);font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#142638}
+  .box{width:min(380px,100%);background:#fff;border-radius:16px;padding:30px 28px 24px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+  .brand img{width:38px;height:38px}
+  .brand b{display:block;font-size:19px;color:var(--navy)}
+  .brand small{color:var(--muted);font-size:12.5px}
+  label{display:block;font-weight:700;font-size:14px;margin-bottom:6px;color:#2b3a4b}
+  input{width:100%;height:44px;border:1px solid var(--line);border-radius:9px;padding:0 12px;font-size:16px;outline:none}
+  input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,136,214,.15)}
+  button{width:100%;height:44px;margin-top:14px;border:0;border-radius:9px;background:var(--action);color:#fff;font-size:15.5px;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.6;cursor:default}
+  .err{min-height:20px;margin-top:10px;font-size:13.5px;color:var(--bad);line-height:1.5}
+  .note{margin-top:14px;padding-top:14px;border-top:1px solid #eef2f6;font-size:12.5px;color:var(--muted);line-height:1.6}
+</style>
+</head>
+<body>
+  <form class="box" id="f" autocomplete="on">
+    <div class="brand"><img src="/static/logo.svg" alt=""><div><b>디벨로직</b><small>개발사업 통합 분석 · 사내 접속</small></div></div>
+    <label for="pw">접속 비밀번호</label>
+    <input id="pw" type="password" autocomplete="current-password" autofocus required>
+    <button id="go" type="submit">로그인</button>
+    <div class="err" id="err" role="alert"></div>
+    <div class="note">비밀번호는 프로그램 관리자에게 받으세요. 관리자 비밀번호는 모든 기능, 직원 비밀번호는 조회·입력만 할 수 있습니다.</div>
+  </form>
+<script>
+  const f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+  f.onsubmit = async e => {
+    e.preventDefault(); err.textContent = ''; go.disabled = true;
+    try {
+      const r = await fetch('/api/v4/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('pw').value }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : '로그인하지 못했습니다');
+      const next = new URLSearchParams(location.search).get('next') || '/';
+      location.href = next.startsWith('/') && !next.startsWith('//') ? next : '/';
+    } catch (x) { err.textContent = x.message; document.getElementById('pw').select(); }
+    go.disabled = false;
+  };
+</script>
+</body>
+</html>

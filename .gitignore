@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+data/*.sqlite3
+.env
+
+# 사업지 자료(개인정보·원본 문서)
+자료함/*
+!자료함/_양식/
+
+# API 인증키
+data/settings.json

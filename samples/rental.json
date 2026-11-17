@@ -1,0 +1,241 @@
+{
+  "project_name": "공공지원민간임대 230세대 (가상 샘플)",
+  "duration_months": 48,
+  "land_area_sqm": 10000,
+  "above_gfa_sqm": 25000,
+  "below_gfa_sqm": 12000,
+  "units": [
+    {
+      "name": "59A",
+      "kind": "apartment",
+      "buyer": "rental",
+      "exclusive_sqm": 59.9,
+      "supply_sqm": 80,
+      "count": 120,
+      "price_per_py": 0,
+      "market_deposit": 150000000,
+      "market_rent": 800000
+    },
+    {
+      "name": "84A",
+      "kind": "apartment",
+      "buyer": "rental",
+      "exclusive_sqm": 84.9,
+      "supply_sqm": 112,
+      "count": 110,
+      "price_per_py": 0,
+      "market_deposit": 200000000,
+      "market_rent": 1100000
+    }
+  ],
+  "sales_rate_pct": 100,
+  "price_adjust_pct": 0,
+  "price_includes_vat": true,
+  "building_ratio_pct": 60,
+  "balcony_per_unit": 0,
+  "balcony_taxable": true,
+  "other_income": 0,
+  "costs": [
+    {
+      "category": "land",
+      "name": "토지매입비",
+      "basis": "per_land_py",
+      "value": 12000000
+    },
+    {
+      "category": "land",
+      "name": "취득세 등 (토지)",
+      "basis": "pct_land",
+      "value": 4.6
+    },
+    {
+      "category": "land",
+      "name": "중개·법무 수수료",
+      "basis": "pct_land",
+      "value": 0.5
+    },
+    {
+      "category": "construction",
+      "name": "직접공사비 (지상)",
+      "basis": "per_above_py",
+      "value": 7500000
+    },
+    {
+      "category": "construction",
+      "name": "직접공사비 (지하)",
+      "basis": "per_below_py",
+      "value": 6000000
+    },
+    {
+      "category": "construction",
+      "name": "철거·인입·부대공사",
+      "basis": "fixed",
+      "value": 1000000000
+    },
+    {
+      "category": "indirect",
+      "name": "설계비",
+      "basis": "per_gfa_py",
+      "value": 150000
+    },
+    {
+      "category": "indirect",
+      "name": "감리비",
+      "basis": "pct_construction",
+      "value": 2.5
+    },
+    {
+      "category": "indirect",
+      "name": "인허가·영향평가 용역",
+      "basis": "fixed",
+      "value": 500000000
+    },
+    {
+      "category": "charges",
+      "name": "광역교통시설부담금",
+      "basis": "fixed",
+      "value": 1200000000
+    },
+    {
+      "category": "charges",
+      "name": "상하수도 원인자부담금",
+      "basis": "fixed",
+      "value": 800000000
+    },
+    {
+      "category": "sales",
+      "name": "임차인 모집·마케팅",
+      "basis": "per_unit",
+      "value": 2000000
+    },
+    {
+      "category": "sales",
+      "name": "임대 홍보관",
+      "basis": "fixed",
+      "value": 1000000000
+    },
+    {
+      "category": "taxes",
+      "name": "보존등기비 (건물 취득세 등)",
+      "basis": "pct_construction",
+      "value": 3.16
+    },
+    {
+      "category": "taxes",
+      "name": "재산세·종부세 등",
+      "basis": "fixed",
+      "value": 300000000
+    },
+    {
+      "category": "admin",
+      "name": "시행사 운영비",
+      "basis": "monthly",
+      "value": 50000000
+    },
+    {
+      "category": "contingency",
+      "name": "예비비",
+      "basis": "pct_total",
+      "value": 2.0
+    }
+  ],
+  "nondeductible_vat_pct": 0,
+  "equity": 20000000000,
+  "loans": [
+    {
+      "name": "건설기간 PF",
+      "amount": 90000000000,
+      "annual_rate_pct": 6.5,
+      "months": 30,
+      "utilization_pct": 55,
+      "fee_pct": 2.0,
+      "start_month": 0,
+      "maturity_month": null
+    }
+  ],
+  "midpay": {
+    "enabled": false,
+    "ratio_pct": 60,
+    "annual_rate_pct": 4.5,
+    "avg_months": 18,
+    "developer_share_pct": 100
+  },
+  "corporate_tax": {
+    "enabled": true,
+    "local_surtax_pct": 10,
+    "brackets": [
+      {
+        "up_to": 200000000,
+        "rate_pct": 10
+      },
+      {
+        "up_to": 20000000000,
+        "rate_pct": 20
+      },
+      {
+        "up_to": 300000000000,
+        "rate_pct": 22
+      },
+      {
+        "up_to": null,
+        "rate_pct": 25
+      }
+    ]
+  },
+  "schedule": null,
+  "site": {
+    "province": "경기도",
+    "municipality": "안양시",
+    "zones": [
+      {
+        "zone": "제2종일반주거지역",
+        "area_sqm": 10000
+      }
+    ],
+    "incentive_far_pct": 0,
+    "building_area_sqm": 2500,
+    "plan_parking": null,
+    "parking_area_per_space": 33,
+    "flags": []
+  },
+  "criteria": {
+    "margin_min_pct": 10,
+    "margin_warn_pct": 5,
+    "bep_max_pct": 80,
+    "bep_warn_pct": 90,
+    "price_drop_min_pct": 10,
+    "equity_irr_min_pct": 15,
+    "ltc_max_pct": 85
+  },
+  "project_mode": "rental",
+  "hug": {
+    "enabled": false
+  },
+  "rental": {
+    "hold_years": 10,
+    "general_rent_ratio_pct": 95,
+    "special_share_pct": 20,
+    "special_rent_ratio_pct": 70,
+    "auto_relief": true,
+    "auto_fund": true,
+    "occupancy_pct": 97,
+    "rent_growth_pct": 2,
+    "opex_pct": 12,
+    "property_tax_annual": 250000000,
+    "guarantee_rate_pct": 0.2,
+    "mortgage_rate_pct": 4.5,
+    "construction_months": 30,
+    "construction_rate_pct": 6.5,
+    "construction_draw_pct": 55,
+    "exit_mode": "price",
+    "exit_cap_pct": 4.5,
+    "sale_cost_pct": 1.5,
+    "building_ratio_pct": 60,
+    "depreciation_years": 40,
+    "discount_rate_pct": 7,
+    "yield_min_pct": 4.5,
+    "dscr_min": 1.2,
+    "irr_min_pct": 7,
+    "exit_price_per_py": 26000000
+  }
+}

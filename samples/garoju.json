@@ -1,0 +1,54 @@
+{
+  "project_name": "가로주택정비사업 207세대 (가상 샘플 · 제공 PDF 입력값)",
+  "project_mode": "redevelopment",
+  "duration_months": 36,
+  "land_area_sqm": 9806,
+  "above_gfa_sqm": 22357.68,
+  "below_gfa_sqm": 4757.32,
+  "units": [
+    {"name": "59A 25평 (조합원)", "kind": "apartment", "buyer": "member", "exclusive_sqm": 59, "supply_sqm": 82.6446, "count": 50, "price_per_py": 26000000},
+    {"name": "59A 25평 (일반)", "kind": "apartment", "buyer": "general", "exclusive_sqm": 59, "supply_sqm": 82.6446, "count": 87, "price_per_py": 26000000},
+    {"name": "72A 30평 (일반)", "kind": "apartment", "buyer": "general", "exclusive_sqm": 72, "supply_sqm": 99.1736, "count": 70, "price_per_py": 26000000},
+    {"name": "1층 근린생활시설", "kind": "retail", "buyer": "general", "exclusive_sqm": 1000, "supply_sqm": 1652.8926, "count": 1, "price_per_py": 30000000}
+  ],
+  "sales_rate_pct": 100,
+  "price_adjust_pct": 0,
+  "price_includes_vat": true,
+  "building_ratio_pct": 60,
+  "balcony_per_unit": 0,
+  "balcony_taxable": true,
+  "other_income": 0,
+  "costs": [
+    {"category": "construction", "name": "직접공사비", "basis": "per_gfa_py", "value": 6600000, "note": "연면적 × 평당 660만"},
+    {"category": "construction", "name": "간접공사비", "basis": "pct_direct", "value": 15, "note": "직접 × 15%"},
+    {"category": "construction", "name": "철거공사비", "basis": "per_land_py", "value": 300000, "note": "대지 × 30만"},
+    {"category": "indirect", "name": "설계비", "basis": "pct_direct", "value": 3},
+    {"category": "indirect", "name": "감리비", "basis": "pct_direct", "value": 1.5},
+    {"category": "indirect", "name": "측량·감정평가", "basis": "fixed", "value": 500000000},
+    {"category": "charges", "name": "정비기반시설 기부체납", "basis": "fixed", "value": 3000000000, "note": "300평 × 1,000만"},
+    {"category": "taxes", "name": "취등록세·보존등기", "basis": "pct_sales", "value": 1.5, "note": "PDF 기준: 총수입 × 1.5% (통상은 공사비 기준 3.16%)"},
+    {"category": "admin", "name": "조합운영비", "basis": "monthly", "value": 15000000, "note": "월 1,500만 × 36개월"},
+    {"category": "admin", "name": "총회·인허가·법무", "basis": "fixed", "value": 800000000},
+    {"category": "contingency", "name": "예비비", "basis": "pct_direct", "value": 5.75, "note": "PDF: (직접+간접) × 5% = 직접 × 5.75%"},
+    {"category": "sales", "name": "분양대행수수료", "basis": "pct_general_sales", "value": 2, "note": "일반분양 × 2%"}
+  ],
+  "nondeductible_vat_pct": 0,
+  "equity": 0,
+  "loans": [
+    {"name": "PF (정책자금)", "amount": 37893240000, "annual_rate_pct": 2.0, "months": 36, "utilization_pct": 100, "fee_pct": 0, "start_month": 0, "maturity_month": null}
+  ],
+  "midpay": {"enabled": false, "ratio_pct": 60, "annual_rate_pct": 4.5, "avg_months": 18, "developer_share_pct": 100},
+  "corporate_tax": {"enabled": false, "local_surtax_pct": 10, "brackets": [
+    {"up_to": 200000000, "rate_pct": 10}, {"up_to": 20000000000, "rate_pct": 20}, {"up_to": 300000000000, "rate_pct": 22}, {"up_to": null, "rate_pct": 25}
+  ]},
+  "schedule": null,
+  "site": {"province": null, "municipality": null, "zones": [], "incentive_far_pct": 0, "building_area_sqm": null, "plan_parking": null, "parking_area_per_space": 33, "flags": []},
+  "prior_assets": {"land_py": 2379, "appraisal_per_py": 10000000, "appraisal_total": null, "members": 125,
+    "cases": [
+      {"name": "A 아파트 20평 거주", "share_py": 19, "apply_price": 650000000},
+      {"name": "B 분양 미신청", "share_py": 19, "apply_price": 0},
+      {"name": "C 주택 30평 소유", "share_py": 30, "apply_price": 780000000},
+      {"name": "D 상가 40평 소유", "share_py": 40, "apply_price": 0}
+    ]},
+  "criteria": {"proportional_ok_pct": 100, "proportional_risk_pct": 80, "margin_min_pct": 10, "margin_warn_pct": 5, "bep_max_pct": 80, "bep_warn_pct": 90, "price_drop_min_pct": 10, "equity_irr_min_pct": 15, "ltc_max_pct": 85}
+}

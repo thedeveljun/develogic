@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>디벨로직 · 개발사업 통합 분석</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/ci.css">
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar">
+    <a class="brand" href="#overview" title="종합 현황으로"><img src="/static/logo.svg" alt="디벨로직 로고"><span><b>디벨로직</b><small>개발사업 통합 분석</small></span></a>
+    <div class="siteswitch"><small>현재 사업지</small><select id="curSiteSel" aria-label="현재 사업지 선택"></select></div>
+    <nav class="nav" id="nav">
+      <button data-view="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>사업지 현황<span class="count" id="siteCount" hidden></span></button>
+      <button data-view="easy" class="feature easy-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>간편 분석 <span class="badge-new">4단계</span></button>
+      <div class="nav-group">선택한 사업지</div>
+      <button data-view="sites"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>자료 · 필지 분석</button>
+      <button data-view="proforma" class="feature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h2M14 10h2M8 14h2M14 14h2M8 18h2M14 18h2"/></svg>사업수지 분석</button>
+      <div class="nav-group">도구</div>
+      <button data-view="cashflow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/></svg>Cash Flow (수동 입력)</button>
+      <button data-view="feasibility"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-6 8-12a8 8 0 0 0-16 0c0 6 8 12 8 12z"/><circle cx="12" cy="10" r="3"/></svg>사업지 법규 검토</button>
+      <button data-view="quick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>간이 조례 검토</button>
+      <button data-view="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>조례 근거 등록</button>
+      <div class="nav-group">설정</div>
+      <button data-view="ci" title="API 설정 · CI 가이드"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2"/><circle cx="17.5" cy="10.5" r="2"/><circle cx="8.5" cy="7.5" r="2"/><circle cx="6.5" cy="12.5" r="2"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2z"/></svg>CI · 디자인 가이드</button>
+    </nav>
+    <a class="side-link" href="/docs" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>API 문서 ↗</a>
+    <div class="side-copy">© 디벨로직 · 내부 검토용 프로토타입</div>
+    <div class="me"><span class="dot" id="srvDot"></span><div><b id="meRole">검토자</b><small id="srvText">서버 확인 중…</small></div><button type="button" class="logout hidden" id="logoutBtn" title="로그아웃">로그아웃</button></div>
+  </aside>
+
+  <div class="mainwrap">
+    <header class="topbar">
+      <div class="grow"><h1 id="heading">종합 현황</h1><p id="subheading"></p></div>
+      <div class="toolbar hidden" data-tools="proforma">
+        <select class="ctl" id="scnSelect" style="width:auto;min-width:180px" aria-label="저장된 시나리오"></select>
+        <span class="chip gray" id="saveState" title="입력한 내용은 이 사업지에 자동 저장됩니다">저장 대기</span>
+        <button class="btn secondary" id="scnSave" title="지금 숫자를 이름 붙여 따로 보관 (예: 기본안·보수안) — 지금 작업은 그대로 유지">💾 시나리오 저장</button>
+        <select class="ctl" id="pfSampleSel" style="width:auto" aria-label="용도별 템플릿" title="건축물 용도에 맞는 분양 타입·사업비·일정·금융 구성으로 시작">
+          <optgroup label="주거"><option value="tpl_apartment">템플릿: 아파트</option><option value="tpl_mixed_apt">템플릿: 주상복합아파트</option><option value="tpl_officetel">템플릿: 오피스텔</option><option value="tpl_mixed_officetel">템플릿: 주상복합오피스텔</option></optgroup>
+          <optgroup label="비주거"><option value="tpl_retail">템플릿: 상업시설 (분양 상가)</option><option value="tpl_office">템플릿: 업무시설 (분양 오피스)</option><option value="tpl_neighborhood">템플릿: 근린생활시설</option><option value="tpl_knowledge">템플릿: 지식산업센터</option><option value="tpl_datacenter">템플릿: 데이터센터</option></optgroup>
+          <optgroup label="정비·임대"><option value="garoju">템플릿: 가로주택정비</option><option value="rental">템플릿: 공공지원민간임대</option></optgroup></select>
+        <button class="btn secondary" id="pfSample" title="이 사업지의 대지·용도지역은 유지하고 항목 구성을 템플릿으로 바꿉니다">템플릿 적용</button>
+        <button class="btn secondary" data-legal-reset title="고친 숫자를 버리고 법령·조례를 반영한 처음 사업수지로 되돌립니다 (사업지 정보는 유지)">↺ 법정 기준 초기화</button>
+        <button class="btn secondary" id="pfExport" title="JSON 파일로 내보내기">내보내기</button>
+        <label class="btn secondary" title="JSON 파일 가져오기">가져오기<input type="file" id="pfImport" accept="application/json" hidden></label>
+        <button class="btn secondary" id="pfPrint">🖨 인쇄</button>
+        <button class="btn" id="pfExcel" title="사업수지분석표 Excel (7개 시트)">📊 사업수지분석표 Excel</button>
+      </div>
+      <div class="toolbar hidden" data-tools="cashflow">
+        <select class="ctl" id="cfSample" style="width:auto"><option value="general">샘플: 일반 공동주택</option><option value="renewal">샘플: 역세권 정비</option></select>
+        <button class="btn secondary" id="cfLoad">샘플 불러오기</button>
+        <button class="btn" id="cfBtnTop">계산 실행</button>
+      </div>
+    </header>
+
+    <main>
+<!-- ═══════════════ 간편 분석 (4단계) ═══════════════ -->
+<section class="view" id="view-easy">
+  <ol class="ez-steps" id="ezSteps">
+    <li data-ez="1"><span>1</span><div><b>사업지 주소</b><small>땅 정보 자동 조회</small></div></li>
+    <li data-ez="2"><span>2</span><div><b>건물 용도</b><small>무엇을 지을까</small></div></li>
+    <li data-ez="3"><span>3</span><div><b>핵심 숫자</b><small>땅값·공사비·분양가</small></div></li>
+    <li data-ez="4"><span>4</span><div><b>결과 · 판정</b><small>해도 되는 사업인가</small></div></li>
+  </ol>
+
+  <!-- 1. 사업지 주소 -->
+  <div class="card ez-panel" data-ez="1">
+    <h2>어느 땅인가요?</h2>
+    <p class="ez-lead">사업지를 고르거나 새로 만든 뒤, 주소(지번)를 입력하면 <b>면적 · 용도지역 · 공시지가 · 규제</b>를 자동으로 가져옵니다.</p>
+    <div class="ez-row">
+      <div class="field"><label>사업지</label><div style="display:flex;gap:8px"><select class="ctl" id="ezSite" style="width:260px"></select><button type="button" class="btn secondary" id="ezNewToggle" aria-expanded="false">＋ 새 사업지</button></div></div>
+      <div class="field" id="ezNewBox" hidden><label>새 사업지 <span class="opt">지역 필수 — 그 지역 조례로 계산 · 이름에 지역이 있으면 자동 선택</span></label><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="ctl" id="ezNewProv" style="width:150px" title="광역지자체"></select><select class="ctl" id="ezNewMuni" style="width:130px" title="시·군·구"></select><input class="ctl" id="ezNewName" placeholder="예: 서울시_서초구" style="width:360px;max-width:100%"><button type="button" class="btn" id="ezCreate">만들기</button><button type="button" class="btn ghost" id="ezNewCancel">취소</button></div></div>
+    </div>
+    <div class="ez-row" style="margin-top:14px">
+      <div class="field" style="flex:1;max-width:760px"><label>필지 주소 (지번까지) <span class="opt">한 필지씩 추가</span></label>
+        <div style="display:flex;gap:8px;align-items:center"><input class="ctl" id="ezAddr" placeholder="예: 서울특별시 서초구 서초동 1376" style="flex:1" autocomplete="off"><button type="button" class="btn secondary" id="ezSearch">🔍 주소 검색</button><button type="button" class="btn secondary" id="ezMapPick" title="지도를 눌러 필지를 고릅니다 (연속지적도)">🗺 지도에서 선택</button><button type="button" class="btn" id="ezLookup">＋ 필지 추가</button></div>
+        <span class="hint">지번까지 입력 → Enter 또는 「＋ 필지 추가」 · 필지가 더 있으면 다음 지번을 이어서 추가 · 같은 필지는 중복 추가되지 않음 · 필지가 많으면 <a href="#sites">자료 · 필지 분석</a>에 필지목록 엑셀</span></div>
+    </div>
+    <details class="ez-manual" id="ezManualBox"><summary>지번이 아직 없나요? <span class="muted">도시개발·택지개발 블록, 환지 예정지 등 — 면적을 직접 입력</span></summary>
+      <div class="ez-row" style="margin-top:10px">
+        <div class="field"><label>광역지자체</label><select class="ctl" id="ezMProv" style="width:170px"></select></div>
+        <div class="field"><label>시·군·구</label><select class="ctl" id="ezMMuni" style="width:150px"></select></div>
+        <div class="field"><label>구역 · 블록(획지)명</label><input class="ctl" id="ezMName" placeholder="예: ○○도시개발구역 A1블록" style="width:260px"></div>
+        <div class="field"><label>면적</label><div class="unit"><input class="ctl money-in" id="ezMArea" inputmode="decimal" placeholder="0" style="width:140px;text-align:right"><span>㎡</span></div></div>
+        <div class="field"><label>용도지역</label><select class="ctl" id="ezMZone" style="width:170px"></select></div>
+        <div class="field"><label>단가 <span class="opt">공급가·감정가, 선택</span></label><div class="unit"><input class="ctl money-in" id="ezMPrice" inputmode="numeric" placeholder="선택" style="width:140px;text-align:right"><span>원/㎡</span></div></div>
+        <div class="field"><label>&nbsp;</label><button type="button" class="btn" id="ezMAdd">＋ 토지 추가</button></div>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin:6px 0 0">면적·용도지역으로 대지면적과 허용 용적률(조례)을 바로 계산합니다. 지번이 확정되면 이 행을 지우고 주소로 조회하세요. 면적은 아래 표에서 바로 고칠 수 있습니다.</p>
+    </details>
+    <div id="ezParcels"></div>
+    <div class="ez-nav"><span></span><button type="button" class="btn ez-next" data-ez-go="2">다음 : 건물 용도 →</button></div>
+  </div>
+
+  <!-- 2. 용도 -->
+  <div class="card ez-panel hidden" data-ez="2">
+    <h2>무엇을 지을까요?</h2>
+    <p class="ez-lead">건물 용도를 고르면 그 용도에 맞는 <b>분양 타입 · 사업비 항목 · 공사·분양 일정 · 금융 구조</b>를 채우고, 이 땅의 <b>허용 용적률에 맞게 규모를 조정</b>합니다. <span class="chip ok">추천</span>은 용도지역 기준입니다.</p>
+    <div class="ez-tiles" id="ezTiles"></div>
+    <div class="ez-nav"><button type="button" class="btn ghost" data-ez-go="1">← 이전</button><button type="button" class="btn ez-next" data-ez-go="3">다음 : 핵심 숫자 →</button></div>
+  </div>
+
+  <!-- 3. 핵심 숫자 -->
+  <div class="card ez-panel hidden" data-ez="3">
+    <h2>핵심 숫자만 확인하세요</h2>
+    <p class="ez-lead">사업성은 대부분 <b>땅값 · 공사비 · 분양가</b>로 결정됩니다. 예시값이 들어 있으니 시세·견적으로 바꾸세요. 고칠 때마다 오른쪽 결과가 바로 바뀝니다.</p>
+    <div class="ez-live" id="ezLive"></div>
+    <div class="ez-grid3">
+      <div class="ez-box"><h3>🟫 땅값</h3><div id="ezLand"></div></div>
+      <div class="ez-box"><h3>🏗 공사비</h3><div id="ezCons"></div></div>
+      <div class="ez-box"><h3>💰 자금 · 기간</h3><div id="ezFin"></div></div>
+    </div>
+    <div class="ez-box" style="margin-top:14px"><h3>🏷 분양가 <small class="muted">공급면적 평당</small></h3><div id="ezUnits"></div></div>
+    <div class="ez-nav"><button type="button" class="btn ghost" data-ez-go="2">← 이전</button><div style="display:flex;gap:8px"><button type="button" class="btn secondary" data-legal-reset title="고친 숫자를 법령·조례 기준 처음 값으로 되돌림">↺ 법정 기준 초기화</button><button type="button" class="btn ez-next" data-ez-go="4">다음 : 결과 보기 →</button></div></div>
+  </div>
+
+  <!-- 4. 결과 -->
+  <div class="card ez-panel hidden" data-ez="4">
+    <div id="ezResult"></div>
+    <div class="ez-nav"><div style="display:flex;gap:8px"><button type="button" class="btn ghost" data-ez-go="3">← 숫자 고치기</button><button type="button" class="btn secondary" data-legal-reset title="고친 숫자를 법령·조례 기준 처음 값으로 되돌림">↺ 법정 기준 초기화</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn secondary" id="ezSave">💾 시나리오 저장</button><button type="button" class="btn secondary" id="ezExcel">📊 사업수지분석표 Excel</button><button type="button" class="btn" data-go="proforma">상세 화면에서 다듬기 →</button></div></div>
+  </div>
+</section>
+
+<!-- ═══════════════ 종합 현황 ═══════════════ -->
+<section class="view" id="view-overview">
+  <div class="stats compact">
+    <div class="stat hl"><small>사업지</small><strong id="pfCount">–</strong><em id="pfCountSub">자료함 폴더 기준</em></div>
+    <div class="stat"><small>사업 추진 적합</small><strong id="pfOk" class="pos">0</strong><em>판정 기준 모두 충족</em></div>
+    <div class="stat"><small>조건부 적합</small><strong id="pfWarn" class="ink">0</strong><em>확인 사항 해소 필요</em></div>
+    <div class="stat"><small>부적합 · 미분석</small><strong id="pfBad" class="neg">0</strong><em id="pfNone">미분석 0</em></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>사업지별 사업수지 <span class="sub">행을 누르면 해당 사업지로 전환합니다 · 금액은 사업수지 마지막 저장 기준</span></h2>
+      <div class="toolbar"><span class="seg" id="pfFilter"><button class="on" data-f="all">전체</button><button data-f="ok">적합</button><button data-f="warn">조건부</button><button data-f="bad">부적합</button><button data-f="none">미분석</button></span><select class="ctl" id="newSiteProv" style="width:140px" title="광역지자체"></select><select class="ctl" id="newSiteMuni" style="width:120px" title="시·군·구"></select><input class="ctl" id="newSite" placeholder="새 사업지 이름 (예: 서울시_서초구)" style="width:240px"><button class="btn" id="siteCreate">+ 사업지 추가</button></div></div>
+    <div class="tablewrap"><table id="portfolio"><thead><tr><th>사업지</th><th>위치 · 용도지역</th><th class="r">대지면적</th><th class="r">세대</th><th class="r">총매출</th><th class="r">세전이익</th><th class="r">이익률 / 비례율</th><th class="r">BEP 분양률</th><th class="r">Equity IRR</th><th class="c">판정</th><th>최종 저장</th><th></th></tr></thead><tbody></tbody></table></div>
+    <p class="muted" style="font-size:13px;margin:12px 0 0" id="inboxPath"></p>
+  </div>
+  <div class="card hidden" id="trashCard">
+    <div class="card-head"><h2>삭제된 사업지 <span class="sub">자료함/_삭제된 사업지 폴더에 보관 중 · 복원하면 목록으로 돌아옵니다</span></h2></div>
+    <div class="tablewrap"><table id="trashTable"><thead><tr><th>사업지</th><th>삭제 일시</th><th class="r">세전이익</th><th class="c">판정</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- 공통 대화상자: 어느 화면에서든 보이도록 화면(section) 밖에 둔다 -->
+  <div class="cfm-back hidden" id="mapBack"><div class="cfm map-dlg" role="dialog" aria-modal="true">
+    <div class="map-head"><h3 id="mapTitle">필지 통합 지도</h3>
+      <span class="seg" id="mapLayer"><button class="on" data-layer="Base">일반</button><button data-layer="Satellite">위성</button></span>
+      <span id="mapExt"></span><button class="btn secondary" id="mapClose">닫기</button></div>
+    <div class="map-body"><div id="mapCanvas"></div><aside id="mapSide"></aside></div>
+  </div></div>
+  <div class="cfm-back hidden" id="scnBack"><div class="cfm" role="dialog" aria-modal="true" style="width:min(480px,calc(100vw - 32px))">
+    <h3>시나리오로 저장</h3>
+    <div class="field" style="margin-bottom:10px"><label>시나리오 이름</label><input class="ctl" id="scnName" maxlength="60" style="width:100%"></div>
+    <div class="field" style="margin-bottom:6px"><label>메모 <span class="opt">(가정·근거 — 선택)</span></label><textarea class="ctl" id="scnMemo" rows="3" maxlength="300" style="width:100%;resize:vertical" placeholder="예: 시공사 견적 2차 반영, 브릿지 금리 7.5%"></textarea></div>
+    <p class="muted" style="font-size:13px;margin:0 0 14px" id="scnHint"></p>
+    <div class="cfm-btns"><button class="btn secondary" id="scnNo">취소</button><button class="btn" id="scnYes">저장</button></div>
+  </div></div>
+  <div class="cfm-back hidden" id="cfmBack"><div class="cfm" role="dialog" aria-modal="true">
+    <h3 id="cfmTitle">삭제하시겠습니까?</h3><p id="cfmMsg"></p>
+    <div class="cfm-btns"><button class="btn secondary" id="cfmNo">취소</button><button class="btn danger" id="cfmYes">삭제</button></div>
+  </div></div>
+
+<!-- ═══════════════ 사업지 자료 ═══════════════ -->
+<section class="view" id="view-sites">
+  <div class="alert info" style="padding:6px 14px;font-size:13.5px;line-height:1.5">이 사업지 폴더에 <b>토지이용계획확인서 PDF</b>(토지이음·정부24 출력본)나 <b>필지목록 엑셀</b>을 넣으면 필지·면적·용도지역·공시지가·규제를 자동으로 정리합니다. 스캔(이미지) PDF는 필지목록 양식에 입력하세요. 자동 판독 결과는 원문과 대조가 필요합니다.</div>
+  <div id="siteDetail"><div class="card"><div class="empty"><span class="ico">📁</span>사업지를 먼저 선택하세요 (왼쪽 위 <b>현재 사업지</b> 또는 <b>사업지 현황</b>).</div></div></div>
+</section>
+
+<!-- ═══════════════ 사업수지 분석 ═══════════════ -->
+<section class="view" id="view-proforma">
+  <div class="stats" id="pfStats">
+    <div class="stat hl"><small>세전이익</small><strong id="sPbt">–</strong><em id="sNpat">세후 –</em></div>
+    <div class="stat"><small>총매출 (VAT 제외)</small><strong id="sRev">–</strong><em id="sRevSub">–</em></div>
+    <div class="stat"><small>총사업비</small><strong id="sCost" class="ink">–</strong><em id="sCostSub">–</em></div>
+    <div class="stat"><small>매출이익률</small><strong id="sMargin">–</strong><em id="sRoe">ROE –</em></div>
+    <div class="stat"><small>BEP 분양률</small><strong id="sBep">–</strong><em id="sStatus"><span class="chip gray">대기</span></em></div>
+  </div>
+
+  <nav class="subnav" id="pfTabs">
+    <button data-tab="basic" class="on"><span class="n">1</span>개요·면적</button>
+    <button data-tab="units"><span class="n">2</span>분양 계획</button>
+    <button data-tab="costs"><span class="n">3</span>사업비</button>
+    <button data-tab="finance"><span class="n">4</span>금융·세금</button>
+    <button data-tab="cf"><span class="n">5</span>일정·현금흐름</button>
+    <button data-tab="result"><span class="n">6</span>수지표·판정</button>
+    <button data-tab="sens"><span class="n">7</span>민감도</button>
+    <button data-tab="scn"><span class="n">8</span>시나리오 비교</button>
+  </nav>
+
+  <!-- 1. 개요·면적 -->
+  <div class="pf-tab" data-tab="basic">
+    <div class="grid-side">
+      <div class="card">
+        <h2>사업 개요 및 면적</h2>
+        <div class="formgrid">
+          <div class="full row3">
+            <div class="field"><label>사업명</label><input id="p_project_name" data-pf></div>
+            <div class="field"><label>사업 방식</label><select id="p_project_mode" data-pf><option value="developer">시행사 자체사업</option><option value="redevelopment">정비사업 (조합: 가로주택·재건축 등)</option><option value="rental">공공지원민간임대 (10년 임대 후 매각)</option></select></div>
+            <div class="field"><label>총 사업기간</label><div class="unit"><input id="p_duration_months" type="number" min="1" inputmode="numeric" data-pf><span>개월</span></div><span class="hint">월 운영비 산정</span></div>
+          </div>
+          <div class="section-title">면적</div>
+          <div class="field"><label>대지면적</label><div class="unit"><input id="p_land_area_sqm" class="money-in" inputmode="decimal" data-pf><span>㎡</span></div><span class="hint" data-py="p_land_area_sqm"></span></div>
+          <div class="field"><label>지상 연면적 <span class="opt">(용적률 산정용)</span></label><div class="unit"><input id="p_above_gfa_sqm" class="money-in" inputmode="decimal" data-pf><span>㎡</span></div><span class="hint" data-py="p_above_gfa_sqm"></span></div>
+          <div class="field"><label>지하 연면적</label><div class="unit"><input id="p_below_gfa_sqm" class="money-in" inputmode="decimal" data-pf><span>㎡</span></div><span class="hint" data-py="p_below_gfa_sqm"></span></div>
+          <div class="field"><label>적용 용적률 <span class="opt">(자동)</span></label><div class="unit"><input id="p_far" readonly><span>%</span></div><span class="hint">지상 연면적 ÷ 대지면적</span></div>
+        </div>
+        <h3>용적률로 지상 연면적 계산</h3>
+        <div class="toolbar">
+          <div class="unit" style="width:160px"><input class="ctl" id="farCalc" type="number" placeholder="계획 용적률" inputmode="decimal"><span>%</span></div>
+          <button class="btn secondary" id="farApply">지상 연면적에 반영</button>
+          <span class="muted" style="font-size:14px">사업지 법규 검토 결과에서 바로 보낼 수도 있습니다.</span>
+        </div>
+      </div>
+      <div class="card sticky">
+        <h2>면적 요약</h2>
+        <table id="areaSummary"><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="card accent">
+      <div class="card-head"><h2>사업지 · 법규 연동 <span class="sub">국가법령정보센터: 국토계획법 시행령 → 지자체 도시·군계획 조례</span></h2>
+        <div class="toolbar"><label class="check" title="조례를 불러오거나 용도지역·면적·인센티브가 바뀌면 허용 연면적을 지상 연면적에 바로 넣습니다"><input type="checkbox" id="s_auto_far" data-pf> 허용 연면적 자동 대입</label><button class="btn" id="ordFetch">조례 불러오기</button></div></div>
+      <div class="formgrid narrow-grid">
+        <div class="field full"><label>사업지 주소 <span class="opt">입력하면 해당 지역 조례를 자동으로 불러와 적용합니다</span></label><div style="display:flex;gap:8px;max-width:520px"><input id="s_address" data-pf style="flex:1" placeholder="🔍 주소 검색을 누르거나 직접 입력 (예: 서울특별시 서초구 서초동 1376)"><button type="button" class="btn" id="addrSearch">🔍 주소 검색</button></div><span class="hint" id="addrHint"></span></div>
+        <div class="field full" id="parcelBox">
+          <div class="card-head" style="margin:4px 0 6px"><h2 style="font-size:15px">필지 목록 <span class="sub">사업지가 여러 필지일 때 — 면적·용도지역을 합산해 대지면적과 용도지역별 면적에 자동 반영</span> <span class="auto-legend"><i></i>주소 조회로 자동 입력된 값</span></h2>
+            </div>
+          <div class="tablewrap"><table class="edit" id="parcelTable"><thead><tr><th style="width:36px">#</th><th>소재지·지번</th><th class="r" style="width:110px">면적 (㎡)</th><th style="width:190px">용도지역</th><th style="width:70px">지목</th><th class="r" style="width:150px">공시지가 (원/㎡)</th><th class="r" style="width:165px">공시지가 총액</th><th style="width:44px"></th><th style="width:230px">자동 조회</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="addrow" id="addParcel">+ 필지 추가</button><button type="button" class="btn secondary" data-parcel-map title="모든 필지를 한 지도에 경계선으로 표시">🗺 필지 통합 지도</button><button type="button" class="btn secondary" data-landuse-report title="모든 필지의 토지이용계획을 최신으로 조회해 반영하고 열람본(참고용) PDF를 자료함에 저장">📄 토지이용계획 열람본 작성·반영</button></div>
+          <div id="parcelNotes"></div>
+        </div>
+        <div class="section-title" style="width:100%;margin-top:18px;padding-top:16px">지역 · 계획 조건</div>
+        <div class="field"><label>광역지자체</label><select id="s_province" data-pf></select></div>
+        <div class="field"><label>시·군·구</label><select id="s_municipality" data-pf></select></div>
+        <div class="field"><label>계획 건축면적</label><div class="unit"><input id="s_building_area_sqm" class="money-in" inputmode="decimal" data-pf><span>㎡</span></div></div>
+        <div class="field"><label>계획 주차대수</label><div class="unit"><input id="s_plan_parking" type="number" min="0" data-pf inputmode="decimal"><span>대</span></div></div>
+        <div class="field"><label>지하주차 대당 면적</label><div class="unit"><input id="s_parking_area_per_space" type="number" step="any" data-pf inputmode="decimal"><span>㎡/대</span></div><span class="hint">램프·통로 포함 (통상 30~40㎡)</span></div>
+        <div class="field"><label style="white-space:nowrap">인센티브 용적률</label><div class="unit"><input id="s_incentive_far_pct" type="number" step="any" data-pf inputmode="decimal"><span>%p</span></div><span class="hint">지구단위·공공기여 등</span></div>
+      </div>
+      <div class="card-head" style="margin-top:16px"><h2 style="font-size:16px">용도지역별 면적 <span class="sub" id="zoneLockNote"></span></h2></div>
+      <div class="tablewrap"><table class="edit" id="zoneTable"><thead><tr><th>용도지역</th><th class="r">면적 (㎡)</th><th class="r">건폐율</th><th class="r">용적률</th><th>근거</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div style="margin-top:8px"><button type="button" class="addrow" id="addZone">+ 용도지역 추가</button></div>
+      <div id="zoningNotes" style="margin-top:12px"></div>
+      <div id="planNote" class="muted" style="margin-top:18px;font-size:14px"></div>
+      <div id="planSection">
+      <div class="card-head" style="margin-top:18px"><h2 style="font-size:16px">3차 · 지자체 도시계획 <span class="sub">지구단위계획·정비계획 결정고시 — 입력하면 조례보다 우선 적용 (자료함에 고시문 PDF를 넣으면 수치를 읽어 옵니다)</span></h2>
+        <div class="toolbar"><button type="button" class="btn" id="planSearch">🔍 토지이음 고시 자동 검색</button><a class="btn ghost" href="https://www.eum.go.kr/" target="_blank" rel="noopener">토지이음 ↗</a></div></div>
+      <div id="planCands" style="margin-bottom:12px"></div>
+      <div class="formgrid">
+        <div class="field"><label>도시계획 구분</label><select id="sp_kind" data-pf><option value="none">해당 없음 (조례 적용)</option><option value="district">지구단위계획</option><option value="redevelopment">재개발사업 (도시정비법)</option><option value="reconstruction">재건축사업 (도시정비법)</option><option value="small">소규모주택정비 (빈집법)</option></select></div>
+        <div class="field wide plan-on"><label>결정고시명</label><input id="sp_title" data-pf placeholder="예: 서초지구 지구단위계획 결정(변경) 고시"></div>
+        <div class="field plan-on"><label>고시번호</label><input id="sp_notice_no" data-pf placeholder="예: 서울특별시 고시 제2026-15호"></div>
+        <div class="field plan-on"><label>고시일</label><input id="sp_notice_date" type="date" data-pf></div>
+        <div class="field wide plan-on"><label>고시 원문 URL <span class="opt">선택</span></label><input id="sp_url" data-pf placeholder="https://..."></div>
+        <div class="field plan-on"><label id="lblBase">기준용적률</label><div class="unit"><input id="sp_base_far" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field plan-on plan-district"><label>허용용적률 <span class="opt">인센티브 달성분</span></label><div class="unit"><input id="sp_allowed_far" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field plan-on"><label id="lblMax">상한용적률</label><div class="unit"><input id="sp_max_far" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field plan-on"><label>계획 건폐율</label><div class="unit"><input id="sp_plan_bcr" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field plan-on plan-district"><label>획지·블록 <span class="opt">결정조서</span></label><input id="sp_block" data-pf placeholder="예: 1-C1, 택지1"></div>
+        <div class="field plan-on plan-district"><label>최고층수 <span class="opt">결정고시</span></label><div class="unit"><input id="sp_max_floors" type="number" step="1" data-pf inputmode="numeric"><span>층</span></div></div>
+        <div class="field plan-on plan-district"><label>최고높이 <span class="opt">결정고시</span></label><div class="unit"><input id="sp_height_limit_m" type="number" step="any" data-pf inputmode="decimal"><span>m</span></div></div>
+        <div class="field plan-on plan-district"><label>주거부문 용적률 <span class="opt">결정고시 상한</span></label><div class="unit"><input id="sp_res_far" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field wide plan-on plan-district"><label>허용용도 <span class="opt">결정고시 요약</span></label><input id="sp_allowed_uses" data-pf placeholder="예: 공동주택(아파트) 및 부대·복리시설"></div>
+        <div class="field plan-on plan-district"><label>공공시설 부지 제공 <span class="opt">기부채납</span></label><div class="unit"><input id="sp_public_land_sqm" class="money-in" inputmode="decimal" data-pf><span>㎡</span></div><span class="hint">시행령 제46조① 완화 · 순대지에서 차감</span></div>
+        <div class="field plan-on plan-renew"><label id="lblRatio">국민주택규모 건설비율</label><div class="unit"><input id="sp_housing_ratio_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint" id="ratioHint"></span></div>
+        <div class="field full checks plan-on plan-renew"><label class="check"><input type="checkbox" id="sp_use_max" data-pf> 법적상한용적률 적용 (임대·국민주택 공급 요건 충족 전제)</label></div>
+      </div>
+      <div id="planResult" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <div class="card" id="redevCard">
+      <h2>정비사업 · 종전자산 <span class="sub">비례율 = (총수입 − 총지출) ÷ 종전자산 × 100</span></h2>
+      <div class="formgrid">
+        <div class="field"><label>종전 토지 총면적</label><div class="unit"><input id="pa_land_py" class="money-in" inputmode="decimal" data-pf><span>평</span></div></div>
+        <div class="field"><label>감정평가 평당가</label><div class="unit"><input id="pa_appraisal_per_py" class="money-in" inputmode="numeric" data-pf><span>원/평</span></div><span class="hint" data-krw="pa_appraisal_per_py"></span></div>
+        <div class="field"><label>종전자산 총액 <span class="opt">입력 시 우선</span></label><div class="unit"><input id="pa_appraisal_total" class="money-in" inputmode="numeric" data-pf placeholder="면적 × 평당가"><span>원</span></div><span class="hint" data-krw="pa_appraisal_total"></span></div>
+        <div class="field"><label>토지등소유자 수</label><div class="unit"><input id="pa_members" type="number" min="0" data-pf inputmode="decimal"><span>명</span></div><span class="hint">평균 대지지분 산정용</span></div>
+      </div>
+      <div class="card-head" style="margin-top:16px"><h2 style="font-size:16px">조합원 분담금 시뮬레이션</h2><button class="addrow" id="addCase">+ 조합원 추가</button></div>
+      <div class="tablewrap"><table class="edit" id="caseTable"><thead><tr><th style="min-width:200px">구분·성명</th><th class="r">대지지분 (평)</th><th class="r">종전평가액 (원)</th><th class="r">신청 평형 분양가액 (원)</th><th class="r">권리가액</th><th class="r">분담금(+) / 환급(−)</th><th></th></tr></thead><tbody></tbody></table></div>
+      <p class="muted" style="font-size:13.5px;margin:10px 0 0">권리가액 = 종전평가액 × 비례율 · 분담금 = 분양가액 − 권리가액 (미신청 시 권리가액 = 현금청산액). 종전평가액을 비우면 지분 × 평당 감정가로 계산합니다. 최종 금액은 관리처분계획 인가 시 확정됩니다.</p>
+    </div>
+  </div>
+
+  <!-- 2. 분양 계획 -->
+  <div class="pf-tab hidden" data-tab="units">
+    <div class="card">
+      <div class="card-head"><h2>타입별 분양 계획 <span class="sub">공급면적 평당 분양가 기준</span></h2>
+        <div class="toolbar"><button type="button" class="btn secondary" id="designBtn" title="설계개요·층별개요·용도별/층별/타입별 분양면적표 PDF">📐 설계도서 PDF 반영</button><input type="file" id="designFiles" accept=".pdf" multiple hidden><button class="addrow" id="addUnit">+ 타입 추가</button></div></div>
+      <div id="designResult"></div>
+      <div class="tablewrap"><table class="edit" id="unitTable">
+        <thead><tr><th class="u3">타입</th><th class="u3">분양 구분</th><th class="u3">용도</th><th class="r">전용 ㎡</th><th class="r">공급 ㎡</th><th class="r">세대·호수</th><th class="r" style="min-width:140px">평당 분양가 (원)</th><th class="r rent-col" style="min-width:130px">시세 보증금 (원)</th><th class="r rent-col" style="min-width:110px">시세 월세 (원)</th><th class="r">세대당 분양가</th><th class="r">분양금액 합계</th><th class="c">부가세</th><th></th></tr></thead>
+        <tbody></tbody><tfoot></tfoot>
+      </table></div>
+      <p class="muted" style="font-size:13.5px;margin:10px 0 0">※ 공동주택 전용 85㎡ 이하(국민주택규모)는 부가세 면세, 85㎡ 초과 주택·오피스텔·상가는 <b>건물분</b>에 부가세 10%가 과세됩니다 (토지분 면세).</p>
+    </div>
+    <div class="card accent hidden" id="rentalCard">
+      <h2>공공지원민간임대 운영 조건 <span class="sub">민간임대주택법 · 시행규칙 별표1·2 · 지특법 제31조의3 · 주택도시기금 (2026-11-16 확인)</span></h2>
+      <div class="formgrid">
+        <div class="section-title">임대료 (시세 대비)</div>
+        <div class="field"><label>임대 운영기간</label><div class="unit"><input id="rt_hold_years" type="number" min="1" data-pf inputmode="decimal"><span>년</span></div><span class="hint">임대의무기간 10년 이상</span></div>
+        <div class="field"><label>일반공급 임대료</label><div class="unit"><input id="rt_general_rent_ratio_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">별표2: 0.95 이하</span></div>
+        <div class="field"><label>특별공급 비율</label><div class="unit"><input id="rt_special_share_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">별표1: 20% 이상 (청년·신혼·고령자)</span></div>
+        <div class="field"><label>특별공급 임대료</label><div class="unit"><input id="rt_special_rent_ratio_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">별표2: 20~30% 0.7 이하 · 30% 이상 0.75 이하</span></div>
+        <div class="field"><label>입주율</label><div class="unit"><input id="rt_occupancy_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>연 임대료 증액</label><div class="unit"><input id="rt_rent_growth_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">법 제44조: 5% 범위·1년 주기</span></div>
+        <div class="section-title">운영비 · 세금</div>
+        <div class="field"><label>운영비 (임대수입 대비)</label><div class="unit"><input id="rt_opex_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">관리·수선·보험·마케팅</span></div>
+        <div class="field"><label>보유세 (감면 전, 연)</label><div class="unit"><input id="rt_property_tax_annual" class="money-in" inputmode="numeric" data-pf><span>원</span></div><span class="hint" data-krw="rt_property_tax_annual"></span></div>
+        <div class="field"><label>임대보증금 보증료율</label><div class="unit"><input id="rt_guarantee_rate_pct" type="number" step="any" data-pf inputmode="decimal"><span>연 %</span></div><span class="hint">HUG 0.073~1.590% · 사업자 75% 부담</span></div>
+        <div class="field full checks">
+          <label class="check check2"><input type="checkbox" id="rt_auto_relief" data-pf><span><b>면적별 재산세·취득세 감면 자동</b><small>지특법 제31조의3 · 일몰 2027.12.31</small></span></label>
+          <label class="check check2"><input type="checkbox" id="rt_auto_fund" data-pf><span><b>주택도시기금 융자 자동</b><small>호당 45㎡↓ 7천만 2.6% · 60㎡↓ 1억 2.9% · 85㎡↓ 1.2억 3.4%</small></span></label>
+        </div>
+        <div class="field"><label>기금 융자 (수동)</label><div class="unit"><input id="rt_fund_loan" class="money-in" inputmode="numeric" data-pf><span>원</span></div><span class="hint">자동 산정 끈 경우</span></div>
+        <div class="field"><label>기금 금리 (수동)</label><div class="unit"><input id="rt_fund_rate_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="section-title">건설기간 · 준공 후 금융</div>
+        <div class="field"><label>공사기간</label><div class="unit"><input id="rt_construction_months" type="number" min="1" data-pf inputmode="decimal"><span>개월</span></div></div>
+        <div class="field"><label>건설 PF 금리</label><div class="unit"><input id="rt_construction_rate_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>건설기간 평균 인출률</label><div class="unit"><input id="rt_construction_draw_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>준공 후 담보대출 금리</label><div class="unit"><input id="rt_mortgage_rate_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">총사업비 − 자기자본 − 보증금 − 기금</span></div>
+        <div class="section-title">매각 (의무기간 종료 후)</div>
+        <div class="field"><label>매각 방식</label><select id="rt_exit_mode" data-pf><option value="price">평당 매각(분양전환)가</option><option value="cap">환원율 (NOI ÷ Cap)</option></select></div>
+        <div class="field"><label>평당 매각가</label><div class="unit"><input id="rt_exit_price_per_py" class="money-in" inputmode="numeric" data-pf><span>원/평</span></div><span class="hint" data-krw="rt_exit_price_per_py"></span></div>
+        <div class="field"><label>매각 환원율</label><div class="unit"><input id="rt_exit_cap_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>매각 비용</label><div class="unit"><input id="rt_sale_cost_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>건물분 비율 (감가상각)</label><div class="unit"><input id="rt_building_ratio_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">정액 <span id="rtDep"></span>년</span></div>
+        <div class="section-title">판정 기준 (사내 기준으로 조정)</div>
+        <div class="field"><label>임대수익률 최소</label><div class="unit"><input id="rt_yield_min_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>DSCR 최소</label><div class="unit"><input id="rt_dscr_min" type="number" step="any" data-pf inputmode="decimal"><span>배</span></div></div>
+        <div class="field"><label>Equity IRR 최소</label><div class="unit"><input id="rt_irr_min_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+      </div>
+    </div>
+    <div class="card" id="saleCondCard">
+      <h2>분양 조건 및 기타 수입</h2>
+      <div class="formgrid">
+        <div class="field"><label>분양률</label><div class="unit"><input id="p_sales_rate_pct" type="number" min="0" max="100" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">분양 완료 비율 (기본 100%)</span></div>
+        <div class="field"><label>분양가 조정</label><div class="unit"><input id="p_price_adjust_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">할인 −, 할증 + (전 타입 일괄)</span></div>
+        <div class="field"><label>과세분 건물가 비율</label><div class="unit"><input id="p_building_ratio_pct" type="number" min="0" max="100" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">분양가 중 건물분 (감정가·기준시가 안분)</span></div>
+        <div class="field"><label>발코니 확장비 <span class="opt">(공동주택 세대당)</span></label><div class="unit"><input id="p_balcony_per_unit" class="money-in" inputmode="numeric" data-pf><span>원</span></div><span class="hint" data-krw="p_balcony_per_unit"></span></div>
+        <div class="field"><label>기타 수입</label><div class="unit"><input id="p_other_income" class="money-in" inputmode="numeric" data-pf><span>원</span></div><span class="hint" data-krw="p_other_income"></span></div>
+        <div class="field full checks">
+          <label class="check"><input type="checkbox" id="p_price_includes_vat" data-pf> 분양가에 부가세 포함</label>
+          <label class="check"><input type="checkbox" id="p_balcony_taxable" data-pf> 발코니 확장 부가세 과세</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 사업비 -->
+  <div class="pf-tab hidden" data-tab="costs">
+    <div class="alert info">항목마다 <b>산정 기준</b>을 고르세요. 평당 기준은 대지·연면적·공급면적 평수에, 비율 기준은 토지비·공사비·분양대금에 곱해집니다. <b>예비비(전체 대비 %)</b>는 금융비용을 제외한 모든 사업비 합계에 적용됩니다.</div>
+    <div id="costCards" class="cost-grid"></div>
+    <div class="card">
+      <h2>공사비 부가세</h2>
+      <div class="formgrid">
+        <div class="field"><label>불공제 부가세 반영 비율</label><div class="unit"><input id="p_nondeductible_vat_pct" type="number" min="0" max="100" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">공사비(정액·평당 항목) × 10% × 이 비율을 원가에 가산</span></div>
+        <div class="field wide"><p class="muted" style="font-size:14px;margin:22px 0 0">국민주택 건설용역은 면세, 과세 분양분 공사비 부가세는 매입세액 공제 대상입니다. 공통 매입세액 중 면세분 안분액 등 <b>공제받지 못하는 부분</b>만 비율로 반영하세요.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 금융·세금 -->
+  <div class="pf-tab hidden" data-tab="finance">
+    <div class="card">
+      <div class="card-head"><h2>자기자본 및 대출 <span class="sub">브릿지론 · 본PF · 기타</span></h2></div>
+      <div class="formgrid" style="margin-bottom:14px">
+        <div class="field"><label>자기자본 (Equity)</label><div class="unit"><input id="p_equity" class="money-in" inputmode="numeric" data-pf><span>원</span></div><span class="hint" data-krw="p_equity"></span></div>
+      </div>
+      <div class="tablewrap"><table class="edit" id="loanTable">
+        <thead><tr><th>대출명</th><th class="r">약정 한도 (원)</th><th class="r">금리 (연 %)</th><th class="r">기간 (개월)</th><th class="r">평균 인출률 (%)</th><th class="r">취급수수료 (%)</th><th class="r">인출 개시월</th><th class="r">만기월</th><th class="r">이자</th><th class="r">수수료</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div style="margin-top:8px"><button class="addrow" id="addLoan">+ 대출 추가</button></div>
+      <p class="muted" style="font-size:13.5px;margin:10px 0 0"><b>월별 현금흐름 사용 시</b>(5번 탭): 부족 자금을 Equity → 대출 순서(위에서부터)로 인출하고 월초 잔액 × 금리/12로 이자를 계산합니다. 개시월(사업 개시 = 0)부터 인출, 만기월에 상환하며 만기를 비우면 입주·잔금월에 상환합니다.<br><b>현금흐름 미사용 시</b>: 이자 = 한도 × 금리 × 기간/12 × 평균 인출률 (간이 추정).</p>
+    </div>
+    <div class="card accent">
+      <div class="card-head"><h2>HUG 보증 사업비 조달 <span class="sub">주택도시보증공사 주택사업금융보증(PF·표준PF) · 신축매입약정 보증 · 주택분양보증</span></h2>
+        <label class="check" id="hugEnableLabel" title="보증 요건을 모두 충족해야 선택할 수 있습니다"><input type="checkbox" id="hg_enabled" data-pf> HUG 보증 사용</label></div>
+      <div id="hugElig" style="margin-bottom:14px"></div>
+      <div class="formgrid" id="hugFields">
+        <div class="field"><label>보증 상품</label><select id="hg_product" data-pf><option value="pf">주택사업금융보증 (PF·표준PF)</option><option value="purchase">신축매입약정 사업비 대출보증</option></select></div>
+        <div class="field"><label>사업 구분</label><select id="hg_business" data-pf><option value="sale">분양사업</option><option value="urban">도시형생활주택·오피스텔</option><option value="rental">임대사업</option></select></div>
+        <div class="field"><label>HUG 심사등급</label><select id="hg_grade" data-pf><option value="1">1등급 (연 0.563%)</option><option value="2">2등급 (연 0.697%)</option><option value="3">3등급 (연 0.848%)</option><option value="4">4등급 (연 0.982%)</option><option value="5">5등급 (연 1.104%)</option></select></div>
+        <div class="field"><label>보증 대상 대출</label><select id="hg_loan_name" data-pf></select><span class="hint">비우면 이름에 PF가 들어간 대출</span></div>
+        <div class="field"><label>분양보증 건축비 요율</label><div class="unit"><input id="hg_sale_build_rate_pct" type="number" step="0.001" min="0.144" max="0.342" data-pf inputmode="decimal"><span>연 %</span></div><span class="hint">신용·심사등급표 0.144~0.342% (대지비 0.133% 고정)</span></div>
+        <div class="field"><label>분양보증료 한시 할인</label><div class="unit"><input id="hg_sale_discount_pct" type="number" step="any" min="0" max="60" data-pf inputmode="decimal"><span>%</span></div><span class="hint">보도 기준 30% (2027.5.31까지) — 공식 확인 후 입력</span></div>
+        <div class="field full checks">
+          <label class="check"><input type="checkbox" id="hg_temp_relief" data-pf> 2027.6.30까지 한시 특례 (한도 70%·도생 80%, 자기자금 완화)</label>
+          <label class="check"><input type="checkbox" id="hg_top_contractor" data-pf> 시공능력평가 100위(도생·오피 200위) 이내</label>
+          <label class="check"><input type="checkbox" id="hg_capital_region" data-pf> 수도권·광역시</label>
+          <label class="check"><input type="checkbox" id="hg_sale_guarantee" data-pf> 주택분양보증 (일반분양 30세대 이상 선분양 필수)</label>
+          <label class="check"><input type="checkbox" id="hg_land_trust" data-pf> 관리형 토지신탁 (매입약정 0.261%)</label>
+        </div>
+      </div>
+      <div id="hugResult" style="margin-top:12px"></div>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">출처: HUG 상품안내 (khug.or.kr, 2026-11-16 열람). 보증료 = 보증금액 × 요율 × 기간. 투자금 비율 할인(10~15% 5%, 15~20% 10%, 20% 초과 20%, 2028.12까지)은 자동 반영. 보증료는 PF보증 → 일반관리비, 분양보증 → 분양·판매비 항목으로 계산되어 현금흐름에 들어갑니다.</p>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>중도금 대출이자</h2>
+        <div class="formgrid grid4">
+          <div class="field full"><label>중도금 대출 이자 방식</label><select id="m_mode" data-pf style="max-width:420px">
+            <option value="interest_free">무이자 — 시행사가 이자 부담 (사업비 반영)</option>
+            <option value="deferred">이자후불제 — 시행사 대납 후 입주(잔금) 시 회수</option>
+            <option value="with_interest">유이자 — 수분양자가 이자 부담 (사업비 없음)</option></select>
+            <span class="hint" id="midHint"></span></div>
+          <div class="field"><label>중도금 비율</label><div class="unit"><input id="m_ratio_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+          <div class="field"><label>대출 금리</label><div class="unit"><input id="m_annual_rate_pct" type="number" step="any" data-pf inputmode="decimal"><span>연 %</span></div></div>
+          <div class="field"><label>평균 대출기간</label><div class="unit"><input id="m_avg_months" type="number" step="any" data-pf inputmode="decimal"><span>개월</span></div></div>
+          <div class="field mid-free"><label>시행사 부담 비율</label><div class="unit"><input id="m_developer_share_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">일부만 지원 시 비율 입력 (전액 100%)</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>법인세 <span class="sub">누진 구간 · 수정 가능</span></h2>
+        <div class="formgrid">
+          <div class="field full" style="flex-direction:row;align-items:center;gap:18px;flex-wrap:wrap">
+            <label class="check"><input type="checkbox" id="t_enabled" data-pf> 법인세 추정 반영</label>
+            <label style="margin:0">지방소득세</label><div class="unit" style="width:90px"><input id="t_local_surtax_pct" type="number" step="any" data-pf style="padding-right:28px" inputmode="decimal"><span>%</span></div><span class="hint" style="min-height:0">법인세액 대비</span>
+          </div>
+        </div>
+        <table class="edit" id="taxTable" style="margin-top:12px"><thead><tr><th>과세표준 구간 상한 (원)</th><th class="r">세율 (%)</th></tr></thead><tbody></tbody></table>
+        <p class="muted" style="font-size:13.5px;margin:10px 0 0">기본값은 2026 사업연도 기준 세율(10/20/22/25%)입니다. 적용 연도 세율을 반드시 확인하세요. 세무조정 없이 세전이익을 과세표준으로 봅니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 일정·현금흐름 -->
+  <div class="pf-tab hidden" data-tab="cf">
+    <div class="card">
+      <div class="card-head"><h2>사업 일정 · 공정 · 분양대금 <span class="sub">월 단위 (사업 개시 = 0개월)</span></h2>
+        <label class="check"><input type="checkbox" id="sc_enabled" data-pf> 월별 현금흐름으로 금융비용·세금 정밀 계산</label></div>
+      <div id="scFields" class="formgrid">
+        <div class="section-title">일정</div>
+        <div class="field"><label>사업 개시 (토지 계약)</label><input id="sc_start_month" type="month" data-pf></div>
+        <div class="field"><label>토지 계약금 비율</label><div class="unit"><input id="sc_land_contract_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>토지 잔금월</label><input id="ofs_land_balance_month" type="month" data-ofs="land_balance_month"><span class="hint" data-ofs-hint="land_balance_month"></span></div>
+        <div class="field"><label>착공월</label><input id="ofs_construction_start_month" type="month" data-ofs="construction_start_month"><span class="hint" data-ofs-hint="construction_start_month"></span></div>
+        <div class="field"><label>공사기간</label><div class="unit"><input id="sc_construction_months" type="number" min="1" data-pf inputmode="decimal"><span>개월</span></div></div>
+        <div class="field"><label>준공 → 입주(잔금)</label><div class="unit"><input id="sc_move_in_lag_months" type="number" min="0" data-pf inputmode="decimal"><span>개월</span></div></div>
+        <div class="section-title">공사비 지급 (공정률)</div>
+        <div class="field"><label>공정률 곡선</label><select id="sc_curve" data-pf title="S커브: 착공 초기·준공 직전은 완만, 중간에 집중"><option value="s_curve">S커브</option><option value="linear">균등</option><option value="custom">직접 입력</option></select><span class="hint">S커브: 초·말기 완만</span></div>
+        <div class="field wide"><label>월별 공정률 직접 입력 <span class="opt">쉼표 구분, 자동 정규화</span></label><input id="scCustom" placeholder="예: 1,2,3,4,5,..."></div>
+        <div class="field"><label>기성 지급 지연</label><div class="unit"><input id="sc_payment_lag_months" type="number" min="0" data-pf inputmode="decimal"><span>개월</span></div></div>
+        <div class="field"><label>공사 유보금</label><div class="unit"><input id="sc_retention_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">준공 후 지급</span></div>
+        <div class="section-title">분양 · 분양대금 수납</div>
+        <div class="field"><label>분양 개시월</label><input id="ofs_sales_start_month" type="month" data-ofs="sales_start_month"><span class="hint" data-ofs-hint="sales_start_month"></span></div>
+        <div class="field"><label>초기 계약 비중</label><div class="unit"><input id="sc_initial_sales_share_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">분양분 중 개시월 계약</span></div>
+        <div class="field"><label>잔여 분양 소진기간</label><div class="unit"><input id="sc_sales_period_months" type="number" min="1" data-pf inputmode="decimal"><span>개월</span></div></div>
+        <div class="field"><label>계약금</label><div class="unit"><input id="sc_deposit_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>중도금</label><div class="unit"><input id="sc_midpay_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">잔금 = 100 − 계약금 − 중도금</span></div>
+        <div class="field"><label>중도금 회차</label><div class="unit"><input id="sc_midpay_installments" type="number" min="0" data-pf inputmode="decimal"><span>회</span></div></div>
+        <div class="section-title">자금 운용 · 세무</div>
+        <div class="field"><label>최소 유지 현금</label><div class="unit"><input id="sc_minimum_cash" class="money-in" inputmode="numeric" data-pf><span>원</span></div><span class="hint" data-krw="sc_minimum_cash"></span></div>
+        <div class="field"><label>여유자금 조기상환</label><div class="unit"><input id="sc_sweep_pct" type="number" step="any" data-pf inputmode="decimal"><span>%</span></div><span class="hint">분양 개시 후 여유 현금 중 상환 비율</span></div>
+        <div class="field"><label>할인율 (NPV)</label><div class="unit"><input id="sc_discount_rate_pct" type="number" step="any" data-pf inputmode="decimal"><span>연 %</span></div></div>
+        <div class="field full checks">
+          <label class="check"><input type="checkbox" id="sc_vat_settlement" data-pf> 부가세 분기 신고 정산 (매입세액 공제·환급)</label>
+          <label class="check"><input type="checkbox" id="sc_corporate_tax_by_progress" data-pf> 법인세 진행기준 (작업진행률, 다음해 3월 납부)</label>
+          <label class="check"><input type="checkbox" id="sc_sme" data-pf> 중소기업 (이월결손금 공제한도 100%)</label>
+        </div>
+      </div>
+    </div>
+    <div id="cfOutPf"></div>
+  </div>
+
+  <!-- 6. 수지 결과 -->
+  <div class="pf-tab hidden" data-tab="result">
+    <div class="card accent" id="verdictCard"></div>
+    <div id="rentalResult"></div>
+    <div id="redevResult"></div>
+    <div id="pfWarnings"></div>
+    <div class="grid-side">
+      <div class="card">
+        <div class="card-head"><h2>사업수지표</h2><div class="seg" id="pfUnitSeg"><button data-u="1">원</button><button data-u="1000000" class="on">백만원</button><button data-u="100000000">억원</button></div></div>
+        <div class="tablewrap"><table id="pnlTable"></table></div>
+      </div>
+      <div class="sticky">
+        <div class="card">
+          <h2>사업비 구성</h2>
+          <div class="stack" id="costStack"></div>
+          <div class="legend" id="costLegend" style="font-size:13px"></div>
+        </div>
+        <div class="card">
+          <h2>핵심 지표</h2>
+          <table id="kpiTable"><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>타입별 분양 수입</h2>
+      <div class="tablewrap"><table id="revTable"></table></div>
+    </div>
+    <p class="muted" id="pfNotice" style="font-size:13.5px"></p>
+  </div>
+
+  <!-- 6. 민감도 -->
+  <div class="pf-tab hidden" data-tab="scn">
+    <div class="howto">
+      <div class="howto-title">이 화면은 이렇게 씁니다</div>
+      <div class="howto-steps">
+        <div class="howto-step"><span>1</span><div><b>위험 점검</b><br>「위험 점검 실행」을 누르면 분양가 하락·미분양·공사비 상승·금리 상승·공기 지연이 생겼을 때 이익이 얼마나 줄어드는지 바로 보여 줍니다.</div></div>
+        <div class="howto-step"><span>2</span><div><b>안 저장</b><br>숫자를 바꿔 보기 전에 「💾 시나리오 저장」으로 <b>기본안</b>을 남기세요. 분양가·공사비를 바꾼 뒤 <b>보수안</b>·<b>낙관안</b>으로 또 저장합니다.</div></div>
+        <div class="howto-step"><span>3</span><div><b>비교 · 선택</b><br>아래 비교표에서 안별 이익·수익률을 나란히 보고, 고른 안의 「불러오기」를 누르면 그 숫자로 바뀝니다. (바꾸기 전 지금 숫자는 자동 백업)</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>① 위험 점검 <span class="sub">스트레스 테스트 — 나쁜 일이 생기면 이익이 얼마나 줄어드나? (금융기관·투자심의에서 묻는 내용)</span></h2>
+        <div class="toolbar"><button type="button" class="btn" id="stressRun">▶ 위험 점검 실행</button></div></div>
+      <div id="stressOut"><div class="empty" style="padding:18px">버튼을 누르면 지금 숫자에 아래 6가지 상황을 하나씩 적용해 계산합니다. 지금 입력한 숫자는 바뀌지 않습니다.<br>
+        <span class="muted" style="font-size:13.5px">분양가 10% 하락 · 미분양 20% · 공사비 10% 상승 · 금리 2%p 상승 · 공사 6개월 지연 · 여러 악재 동시 발생</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>② 안(시나리오) 비교 <span class="sub">저장해 둔 안을 지금 숫자와 나란히 비교 — 초록은 지금보다 유리, 빨강은 불리</span></h2>
+        <div class="toolbar"><button type="button" class="btn secondary" id="scnSave2">💾 지금 숫자를 시나리오로 저장</button></div></div>
+      <div id="scnCompare"><div class="empty" style="padding:18px">아직 저장한 안이 없습니다.<br><span class="muted" style="font-size:13.5px">「💾 지금 숫자를 시나리오로 저장」을 눌러 <b>기본안</b>부터 저장해 보세요.</span></div></div>
+    </div>
+  </div>
+
+  <div class="pf-tab hidden" data-tab="sens">
+    <div class="card">
+      <div class="card-head"><h2>분양률 × 분양가 민감도</h2><div class="seg" id="sensSeg"><button data-m="margin" class="on">매출이익률</button><button data-m="pbt">세전이익</button></div></div>
+      <p class="muted" style="font-size:14px;margin:0 0 12px">현재 입력 분양가 기준으로 분양가를 ±10% 조정하고 분양률을 60~100%로 바꿨을 때의 결과입니다. 굵은 테두리가 현재 분양가·분양률 100% 기준입니다.</p>
+      <div class="tablewrap"><table class="heat" id="sensTable"></table></div>
+      <div class="legend" style="margin-top:12px"><span><i style="background:#ffd8d3"></i>손실</span><span><i style="background:#fff1d6"></i>이익률 0~5%</span><span><i style="background:#e3f0fb"></i>5~10%</span><span><i style="background:#b9dcf5"></i>10~15%</span><span><i style="background:#7cc0f0"></i>15% 이상</span></div>
+    </div>
+    <div class="card" id="bepCard"></div>
+  </div>
+</section>
+
+<!-- ═══════════════ Cash Flow ═══════════════ -->
+<section class="view" id="view-cashflow">
+  <div class="card">
+    <div class="card-head"><h2>사업 조건 및 일정</h2><div class="seg hidden" id="cfMode"><button class="on" data-mode="form">표 편집</button><button data-mode="json">JSON</button></div></div>
+    <p class="muted" style="font-size:14px;margin:-4px 0 14px">금액 단위: 원. 대출 이자는 일별 기초잔액 기준으로 계산되어 월말 지급됩니다. 샘플은 가상 데이터입니다.</p>
+    <div id="cfForm">
+      <div class="formgrid" style="display:flex;flex-wrap:wrap;gap:12px 14px">
+        <div class="field" style="width:200px"><label>사업 유형</label><select id="c_project_type"><option value="general_housing">일반 공동주택</option><option value="station_area_renewal">역세권 정비사업</option></select></div>
+        <div class="field" style="width:160px"><label>사업 시작일</label><input id="c_start" type="date"></div>
+        <div class="field" style="width:160px"><label>사업 종료일</label><input id="c_end" type="date"></div>
+        <div class="field" style="width:170px"><label>기초 현금</label><div class="unit"><input id="c_opening_cash" class="money-in" inputmode="numeric"><span>원</span></div><span class="hint" data-krw="c_opening_cash"></span></div>
+        <div class="field" style="width:170px"><label>최소 유지 현금</label><div class="unit"><input id="c_minimum_cash" class="money-in" inputmode="numeric"><span>원</span></div><span class="hint" data-krw="c_minimum_cash"></span></div>
+      </div>
+      <div class="card-head" style="margin-top:20px"><h2 style="font-size:16px">대출 약정</h2></div>
+      <div class="tablewrap"><table class="edit"><thead><tr><th style="width:160px">대출 ID</th><th class="r" style="width:200px">한도 (원)</th><th class="r" style="width:110px">연 이율 (%)</th><th style="width:110px">일수 기준</th><th style="width:90px" title="0 = 월말">지급일</th><th style="width:44px"></th><th></th></tr></thead><tbody id="cfLoanRows"></tbody></table></div>
+      <div style="margin-top:8px"><button class="addrow" id="cfAddLoan">+ 대출 추가</button></div>
+      <div class="card-head" style="margin-top:28px;padding-top:22px;border-top:2px solid #b8c4ce"><h2 style="font-size:16px">자금 이벤트 <span class="sub" id="evCount"></span></h2></div>
+      <div class="tablewrap"><table class="edit"><thead><tr><th style="width:160px">날짜</th><th style="width:250px">구분</th><th style="width:150px">대출</th><th class="r" style="width:220px">금액 (원)</th><th style="width:44px"></th><th></th></tr></thead><tbody id="evRows"></tbody></table></div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="addrow" id="addEv">+ 이벤트 추가</button><button class="btn ghost" id="sortEv">날짜순 정렬</button></div>
+    </div>
+    <div id="cfJsonWrap" class="hidden"><textarea id="cfJson" class="ctl" spellcheck="false" style="min-height:380px;font-family:Consolas,monospace;font-size:13px"></textarea></div>
+    <div class="toolbar" style="margin-top:16px"><button class="btn lg" id="cfBtn">Cash Flow 계산</button></div>
+  </div>
+  <div class="card" id="cfOut">
+    <div class="card-head"><h2>월별 현금흐름 결과</h2><div class="seg" id="cfUnit"><button data-u="1">원</button><button data-u="1000000" class="on">백만원</button><button data-u="100000000">억원</button></div></div>
+    <div id="cfResult"><div class="empty"><span class="ico">📈</span>일정을 입력하고 <b>Cash Flow 계산</b>을 누르세요.</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════ 사업지 법규 검토 ═══════════════ -->
+<section class="view" id="view-feasibility">
+  <div class="alert info">등록된 조례 근거가 없거나 필수 검토 항목이 확인되지 않으면 계산이 <b>차단</b>됩니다. 결과는 인허가 확정치가 아닙니다.</div>
+  <div class="grid-side">
+    <div class="card">
+      <h2>사업지 입력</h2>
+      <div class="formgrid">
+        <div class="section-title">사업지 정보</div>
+        <div class="field"><label>광역지자체</label><select id="f_province"></select></div>
+        <div class="field"><label>시·군·구 <span class="opt">공식 명칭</span></label><select id="f_municipality"></select></div>
+        <div class="field"><label>용도지역</label><input id="f_zone" value="제2종일반주거지역" list="zoneList"></div>
+        <div class="field"><label>사업 유형</label><select id="f_project_type"><option value="general_housing">일반 공동주택</option><option value="station_area_renewal">역세권 정비사업</option></select></div>
+        <div class="field"><label>검토 기준일</label><input id="f_as_of" type="date"></div>
+        <div class="field"><label>전체 사업부지</label><div class="unit"><input id="f_site_area_sqm" class="money-in" inputmode="decimal" value="10,000"><span>㎡</span></div><span class="hint" data-py="f_site_area_sqm"></span></div>
+        <div class="field"><label>확정 산정대지면적</label><div class="unit"><input id="f_confirmed_buildable_site_sqm" class="money-in" inputmode="decimal" placeholder="검토 전 비워두기"><span>㎡</span></div><span class="hint" data-py="f_confirmed_buildable_site_sqm"></span></div>
+        <div class="section-title">검토 확인</div>
+        <div class="field full checks">
+          <label class="check"><input type="checkbox" id="f_verified_parcel_and_overlays"> 필지·중첩규제 검토</label>
+          <label class="check"><input type="checkbox" id="f_verified_district_or_renewal_plan"> 지구단위·정비계획 검토</label>
+          <label class="check"><input type="checkbox" id="f_verified_incentive_and_contribution"> 인센티브·공공기여 검토</label>
+        </div>
+        <div class="section-title">단순 사업성 가정 <span class="muted" style="font-weight:500">— 상세 수지는 사업수지 분석 메뉴 사용</span></div>
+        <div class="field"><label>인센티브 용적률</label><div class="unit"><input id="f_incentive_far_pct" type="number" value="0" step="any" inputmode="decimal"><span>%p</span></div></div>
+        <div class="field"><label>분양 가능 면적 비율</label><div class="unit"><input id="f_saleable_ratio" type="number" step="0.01" min="0" max="1" value="0.75" inputmode="decimal"><span>0~1</span></div></div>
+        <div class="field"><label>분양단가</label><div class="unit"><input id="f_sale_price_krw_per_sqm" class="money-in" inputmode="numeric" value="0"><span>원/㎡</span></div><span class="hint" data-krw="f_sale_price_krw_per_sqm"></span></div>
+        <div class="field"><label>공사비</label><div class="unit"><input id="f_construction_cost_krw_per_sqm" class="money-in" inputmode="numeric" value="0"><span>원/㎡</span></div><span class="hint" data-krw="f_construction_cost_krw_per_sqm"></span></div>
+        <div class="field"><label>공공기여 현금비용</label><div class="unit"><input id="f_contribution_cost_krw" class="money-in" inputmode="numeric" value="0"><span>원</span></div><span class="hint" data-krw="f_contribution_cost_krw"></span></div>
+        <div class="field"><label>기타 사업비</label><div class="unit"><input id="f_other_cost_krw" class="money-in" inputmode="numeric" value="0"><span>원</span></div><span class="hint" data-krw="f_other_cost_krw"></span></div>
+      </div>
+      <div class="toolbar" style="margin-top:18px"><button class="btn lg" id="feasBtn">법규 검토 실행</button><button class="btn ghost" data-go="rules">조례 근거 등록</button></div>
+    </div>
+    <div class="card sticky accent">
+      <h2>검토 결과</h2>
+      <div id="feasResult"><div class="empty"><span class="ico">📋</span>사업지 정보를 입력하고<br><b>법규 검토 실행</b>을 누르세요.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 간이 조례 검토 ═══════════════ -->
+<section class="view" id="view-quick">
+  <div class="alert info">내장 조례는 <b>경기도 광주시</b> 일부 주거지역(2026-04-15 시행)과 <b>서울 역세권</b> 장기전세주택 정의(2026-05-18 시행)만 포함합니다. 조례의 일반 상한만 반환합니다. <b>경기도 안양시</b>는 조례 수치가 아직 등록되지 않아 ‘미등록’으로 표시됩니다.</div>
+  <div class="grid-side">
+    <div class="card">
+      <h2>사업지 입력</h2>
+      <div class="formgrid">
+        <div class="field"><label>사업 유형</label><select id="q_type"><option value="general_housing">일반 공동주택 시행</option><option value="station_area_renewal">역세권 정비사업</option></select></div>
+        <div class="field"><label>지자체</label><select id="q_region"><option selected>경기도 안양시</option><option>경기도 광주시</option><option>서울특별시</option></select></div>
+        <div class="field"><label>용도지역</label><select id="q_zone"><option>제2종일반주거지역</option><option>제3종일반주거지역</option><option>제1종일반주거지역</option></select></div>
+        <div class="field"><label>사업부지 면적</label><div class="unit"><input id="q_area" class="money-in" inputmode="decimal" value="10,000"><span>㎡</span></div><span class="hint" data-py="q_area"></span></div>
+        <div class="field"><label>역 승강장 거리 <span class="opt">역세권만</span></label><div class="unit"><input id="q_dist" type="number" min="0" placeholder="미확인" inputmode="decimal"><span>m</span></div></div>
+        <div class="field full checks">
+          <label class="check"><input id="q_district" type="checkbox"> 지구단위·정비계획 확인</label>
+          <label class="check"><input id="q_parcel" type="checkbox"> 필지별 용도지역 확인</label>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:18px"><button class="btn lg" id="quickBtn">조례 기준 검토</button></div>
+    </div>
+    <div class="card sticky accent"><h2>검토 결과</h2><div id="quickResult"><div class="empty"><span class="ico">🔎</span>사업지 정보를 입력하고 <b>조례 기준 검토</b>를 누르세요.</div></div></div>
+  </div>
+</section>
+
+<!-- ═══════════════ 조례 근거 등록 ═══════════════ -->
+<section class="view" id="view-rules">
+  <div class="alert warn"><b>검토자용 화면</b> — 등록만으로 법적 검증이 완료되지 않습니다. 공식 원문에서 시행일·조항을 확인한 뒤 등록하세요. 같은 날짜에 규칙이 중복되면 계산이 차단됩니다.</div>
+  <div class="grid2">
+    <div class="card">
+      <h2>적용 대상 및 수치</h2>
+      <div class="formgrid">
+        <div class="field"><label>광역지자체</label><select id="r_province"></select></div>
+        <div class="field"><label>시·군·구 <span class="opt">공식 명칭</span></label><select id="r_municipality"></select></div>
+        <div class="field"><label>용도지역</label><input id="r_zone" value="제2종일반주거지역" list="zoneList"></div>
+        <div class="field"><label>사업 유형</label><select id="r_project_type"><option value="general_housing">일반 공동주택</option><option value="station_area_renewal">역세권 정비사업</option></select></div>
+        <div class="field"><label>용적률</label><div class="unit"><input id="r_far_pct" type="number" step="any" placeholder="예: 250" inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>건폐율</label><div class="unit"><input id="r_bcr_pct" type="number" step="any" placeholder="예: 60" inputmode="decimal"><span>%</span></div></div>
+        <div class="field"><label>시행 시작일</label><input id="r_valid_from" type="date"></div>
+        <div class="field"><label>시행 종료일 <span class="opt">선택</span></label><input id="r_valid_to" type="date"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>근거 및 검토자</h2>
+      <div class="formgrid">
+        <div class="field"><label>조례·고시명</label><input id="r_legal_title" placeholder="예: 서울특별시 도시계획 조례"></div>
+        <div class="field"><label>근거 조항</label><input id="r_article" placeholder="제○조 제○항"></div>
+        <div class="field"><label>공식 원문 URL</label><input id="r_source_url" placeholder="https://www.law.go.kr/..."></div>
+        <div class="field"><label>검토자</label><input id="r_reviewed_by" placeholder="성명"></div>
+        <div class="field"><label>검토일</label><input id="r_reviewed_on" type="date"></div>
+        <div class="field full"><label>특이사항</label><input id="r_notes"></div>
+      </div>
+      <div class="toolbar" style="margin-top:18px"><button class="btn lg" id="ruleBtn">근거 등록</button><button class="btn secondary" id="ruleReset">초기화</button></div>
+      <div id="ruleResult" style="margin-top:14px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CI 가이드 ═══════════════ -->
+<section class="view" id="view-ci">
+  <div class="card accent admin-only" id="pwCard">
+    <h2>접속 비밀번호 <span class="sub">사무실 다른 PC에서 접속할 때 필요 — 이 PC에서는 자동으로 관리자</span></h2>
+    <div id="pwState" class="muted" style="font-size:14px;margin-bottom:10px"></div>
+    <div class="formgrid narrow-grid">
+      <div class="field" style="width:240px"><label>관리자 비밀번호 <span class="opt">모든 기능</span></label><input id="pwAdmin" type="password" autocomplete="new-password" placeholder="새 비밀번호 (4자 이상)"></div>
+      <div class="field" style="width:240px"><label>직원 비밀번호 <span class="opt">조회·입력만</span></label><input id="pwStaff" type="password" autocomplete="new-password" placeholder="새 비밀번호 (선택)"></div>
+      <div class="field" style="width:auto;justify-content:flex-end"><label>&nbsp;</label><div style="display:flex;gap:8px"><button class="btn" id="pwSave">저장</button><button class="btn ghost hidden" id="pwStaffClear">직원 비밀번호 해제</button><button class="btn ghost del-site hidden" id="pwClearAll">비밀번호 해제</button></div></div>
+    </div>
+    <ul class="muted" style="font-size:13.5px;line-height:1.8;margin:12px 0 0;padding-left:20px">
+      <li><b>관리자</b>: 모든 기능 · <b>직원</b>: 사업수지 조회·입력·시나리오 저장 가능, <b>사업지 삭제·영구 삭제·API 설정·비밀번호 변경 불가</b></li>
+      <li>비밀번호는 이 PC의 data/settings.json 에 암호화(해시)되어 저장되며 원래 글자는 저장되지 않습니다. 로그인은 12시간 유지됩니다.</li>
+      <li id="lanUrls"></li>
+    </ul>
+  </div>
+  <div class="card accent">
+    <h2>API 설정 <span class="sub">필지 면적·지목·용도지역·공시지가 자동 입력 — 브이월드(국토교통부 공간정보 오픈플랫폼) 토지특성정보</span></h2>
+    <div class="formgrid narrow-grid">
+      <div class="field" style="width:360px"><label>브이월드 API 인증키</label><input id="vwKey" type="password" autocomplete="off" placeholder="발급받은 인증키 붙여넣기"><span class="hint" id="vwState"></span></div>
+      <div class="field" style="width:260px"><label>서비스 URL <span class="opt">키 발급 시 등록한 주소</span></label><input id="vwDomain" placeholder="http://127.0.0.1:8001"></div>
+      <div class="field" style="width:auto;justify-content:flex-end"><label>&nbsp;</label><button class="btn" id="vwSave">저장</button></div>
+    </div>
+    <ol class="muted" style="font-size:14px;line-height:1.9;margin:12px 0 0;padding-left:20px">
+      <li><a href="https://www.vworld.kr" target="_blank" rel="noopener">vworld.kr</a> 회원가입 → 로그인</li>
+      <li>오픈API › 인증키 발급 → 서비스 URL에 <b>http://127.0.0.1:8001</b> (이 프로그램 주소) 입력, 활용 API에 <b>데이터 API(토지특성정보)</b> 포함</li>
+      <li>발급된 인증키를 위에 붙여넣고 저장 → 사업수지 화면에서 주소를 검색하면 면적·지목·용도지역·공시지가가 자동 입력됩니다</li>
+    </ol>
+    <p class="muted" style="font-size:13px;margin:8px 0 0">인증키는 이 PC의 프로그램 폴더(data/settings.json)에만 저장되며 화면에는 일부만 표시됩니다. 조회 시 필지고유번호(PNU)만 브이월드로 전송됩니다.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2>브랜드</h2>
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+        <div style="background:var(--brand-navy);border-radius:12px;padding:18px 22px;display:flex;gap:12px;align-items:center"><img src="/static/logo.svg" width="48" height="48" alt=""><div><b style="color:#fff;font-size:22px;letter-spacing:-.03em">디벨로직</b><div style="color:var(--side-text);font-size:13px;font-weight:600">개발사업 통합 분석</div></div></div>
+        <div style="border:1px solid var(--line);border-radius:12px;padding:18px 22px;display:flex;gap:12px;align-items:center"><img src="/static/logo.svg" width="48" height="48" alt=""><div><b style="font-size:22px;letter-spacing:-.03em">디벨로직</b><div class="muted" style="font-size:13px;font-weight:600">DEVELOGIC</div></div></div>
+      </div>
+      <ul style="line-height:1.9;font-size:15px;padding-left:18px;margin:16px 0 0">
+        <li><b>심볼</b> — 원형 바탕 위 상승하는 세 개의 건물 매스(개발)와 기준선(로직·수지 검증)</li>
+        <li><b>최소 크기</b> — 화면 24px, 인쇄 8mm. 원형 바깥 여백은 심볼 지름의 1/4 이상</li>
+        <li><b>금지</b> — 비율 변형, 색 임의 변경, 그림자·외곽선 추가, 사진 위 직접 배치</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>서체 · 숫자 표기</h2>
+      <table><tbody>
+        <tr><td style="font-size:23px;font-weight:700">화면 제목 23 Bold</td><td class="r muted">--fs-title</td></tr>
+        <tr><td style="font-size:19px;font-weight:700">카드 제목 19 Bold</td><td class="r muted">--fs-card</td></tr>
+        <tr><td>본문 16 Regular</td><td class="r muted">--fs-body</td></tr>
+        <tr><td style="font-size:14px;font-weight:700">입력 라벨 14 Bold</td><td class="r muted">--fs-label</td></tr>
+        <tr><td style="font-size:13px" class="muted">설명·주석 13</td><td class="r muted">--fs-caption</td></tr>
+      </tbody></table>
+      <ul style="line-height:1.9;font-size:14.5px;padding-left:18px;margin:14px 0 0">
+        <li>서체: <b>Pretendard</b> (대체: 맑은 고딕). 숫자는 고정폭 숫자(tabular-nums)</li>
+        <li>금액: 표는 원·백만원·억원 단위 선택, 요약은 <b>억 원</b> 소수 1~2자리</li>
+        <li>면적: <b>㎡ 기본 + 평 병기</b> (1평 = 400/121 ㎡)</li>
+        <li>음수·손실은 <span class="minus">빨강</span>, 핵심 금액은 <span class="money">딥블루</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h2>색상 체계</h2>
+    <div id="swatches" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px"></div>
+  </div>
+  <div class="card">
+    <h2>컴포넌트</h2>
+    <div class="toolbar" style="margin-bottom:14px"><button class="btn">기본 버튼</button><button class="btn secondary">보조 버튼</button><button class="btn ghost">외곽선 버튼</button><button class="btn danger">삭제</button><button class="addrow">+ 행 추가</button></div>
+    <div class="chips" style="margin-bottom:14px"><span class="chip">정보</span><span class="chip ok">정상·이익</span><span class="chip warn">주의</span><span class="chip bad">위험·손실</span><span class="chip gray">대기</span></div>
+    <div class="stats" style="margin-bottom:0"><div class="stat hl"><small>강조 지표</small><strong>184.2억</strong><em>핵심 결과 1개에만 사용</em></div><div class="stat"><small>일반 지표</small><strong>10.3%</strong><em>보조 설명</em></div><div class="stat"><small>손실 지표</small><strong class="neg">-12.4억</strong><em>음수는 빨강</em></div></div>
+  </div>
+</section>
+    </main>
+    <footer>디벨로직 · 부동산 개발사업 통합 분석 프로토타입 · 산출값은 입력 가정 기반 추정이며 확정 수지가 아닙니다</footer>
+  </div>
+</div>
+<datalist id="zoneList"><option>제1종전용주거지역</option><option>제2종전용주거지역</option><option>제1종일반주거지역</option><option>제2종일반주거지역</option><option>제3종일반주거지역</option><option>준주거지역</option><option>중심상업지역</option><option>일반상업지역</option><option>근린상업지역</option><option>준공업지역</option></datalist>
+<div id="notice" role="status"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

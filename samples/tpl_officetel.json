@@ -1,0 +1,288 @@
+{
+ "project_name": "템플릿 — 오피스텔 (예시 가정)",
+ "duration_months": 36,
+ "land_area_sqm": 1500,
+ "above_gfa_sqm": 6750,
+ "below_gfa_sqm": 3000,
+ "units": [
+  {
+   "name": "오피스텔 A (원룸)",
+   "kind": "officetel",
+   "exclusive_sqm": 26.4,
+   "supply_sqm": 45,
+   "count": 100,
+   "price_per_py": 27100000
+  },
+  {
+   "name": "오피스텔 B (1.5룸)",
+   "kind": "officetel",
+   "exclusive_sqm": 33.9,
+   "supply_sqm": 58,
+   "count": 20,
+   "price_per_py": 27100000
+  },
+  {
+   "name": "1층 근생",
+   "kind": "retail",
+   "exclusive_sqm": 50,
+   "supply_sqm": 80,
+   "count": 4,
+   "price_per_py": 62300000
+  }
+ ],
+ "sales_rate_pct": 100,
+ "price_adjust_pct": 0,
+ "price_includes_vat": true,
+ "building_ratio_pct": 65,
+ "balcony_per_unit": 0,
+ "balcony_taxable": true,
+ "other_income": 0,
+ "costs": [
+  {
+   "category": "land",
+   "name": "토지매입비",
+   "basis": "per_land_py",
+   "value": 25000000,
+   "note": "준주거 — 인근 실거래·감정가로 교체"
+  },
+  {
+   "category": "land",
+   "name": "취득세 등 (토지)",
+   "basis": "auto_land_tax",
+   "value": 0,
+   "note": "지방세법: 토지 매매 4.6% (농지 3.4%) 자동"
+  },
+  {
+   "category": "land",
+   "name": "중개·법무 수수료",
+   "basis": "pct_land",
+   "value": 0.5,
+   "note": ""
+  },
+  {
+   "category": "construction",
+   "name": "직접공사비 (지상)",
+   "basis": "per_above_py",
+   "value": 7500000,
+   "note": "오피스텔 (철근콘크리트 라멘조)"
+  },
+  {
+   "category": "construction",
+   "name": "직접공사비 (지하)",
+   "basis": "per_below_py",
+   "value": 6000000,
+   "note": "지하 굴착·흙막이·주차장"
+  },
+  {
+   "category": "indirect",
+   "name": "설계비",
+   "basis": "per_gfa_py",
+   "value": 150000,
+   "note": "건축·구조·설비·전기·조경"
+  },
+  {
+   "category": "indirect",
+   "name": "감리비",
+   "basis": "pct_construction",
+   "value": 2.5,
+   "note": "건축물 규모·용도별 감리 대가 기준"
+  },
+  {
+   "category": "indirect",
+   "name": "인허가·영향평가 용역",
+   "basis": "fixed",
+   "value": 400000000,
+   "note": "교통·환경·경관 심의 등"
+  },
+  {
+   "category": "charges",
+   "name": "하수도 원인자부담금",
+   "basis": "auto_sewer",
+   "value": 0,
+   "note": "오수발생량 자동 × 지자체 공고 단위단가(입력값, 원/㎥)"
+  },
+  {
+   "category": "charges",
+   "name": "상수도 원인자부담금",
+   "basis": "auto_water",
+   "value": 0,
+   "note": "조례 구경별 부담액(안양 등 내장) 또는 세대당 부담액 입력"
+  },
+  {
+   "category": "taxes",
+   "name": "보존등기 (건물 취득세 등)",
+   "basis": "auto_preservation",
+   "value": 0,
+   "note": "지방세법: 원시취득 2.8% + 농특·교육세 자동"
+  },
+  {
+   "category": "taxes",
+   "name": "재산세·종부세 등",
+   "basis": "fixed",
+   "value": 200000000,
+   "note": "사업기간 토지 보유세"
+  },
+  {
+   "category": "admin",
+   "name": "시행사 운영비",
+   "basis": "monthly",
+   "value": 40000000,
+   "note": "인건비·사무실·법무·회계"
+  },
+  {
+   "category": "admin",
+   "name": "신탁 수수료",
+   "basis": "pct_sales",
+   "value": 0.5,
+   "note": "관리형 토지신탁 (대주 요구 시)"
+  },
+  {
+   "category": "sales",
+   "name": "분양대행 수수료",
+   "basis": "pct_sales",
+   "value": 2.5,
+   "note": "오피스텔·상가 대행 수수료 (총매출 대비)"
+  },
+  {
+   "category": "sales",
+   "name": "광고·홍보비",
+   "basis": "pct_sales",
+   "value": 1.0,
+   "note": ""
+  },
+  {
+   "category": "sales",
+   "name": "홍보관 (임차·운영)",
+   "basis": "fixed",
+   "value": 800000000,
+   "note": ""
+  },
+  {
+   "category": "sales",
+   "name": "분양보증·대리사무 수수료",
+   "basis": "pct_sales",
+   "value": 0.3,
+   "note": "건축물분양법: 오피스텔 30실 이상 신탁·분양보증 후 분양"
+  },
+  {
+   "category": "contingency",
+   "name": "예비비",
+   "basis": "pct_total",
+   "value": 2.0,
+   "note": ""
+  }
+ ],
+ "nondeductible_vat_pct": 0,
+ "equity": 4200000000,
+ "loans": [
+  {
+   "name": "브릿지론",
+   "amount": 10600000000,
+   "annual_rate_pct": 7.5,
+   "months": 8,
+   "utilization_pct": 100,
+   "fee_pct": 2.0,
+   "start_month": 0,
+   "maturity_month": 8
+  },
+  {
+   "name": "본PF",
+   "amount": 23300000000,
+   "annual_rate_pct": 6.5,
+   "months": 30,
+   "utilization_pct": 60,
+   "fee_pct": 2.5,
+   "start_month": 8,
+   "maturity_month": null
+  }
+ ],
+ "midpay": {
+  "enabled": true,
+  "mode": "deferred",
+  "ratio_pct": 50,
+  "annual_rate_pct": 5.0,
+  "avg_months": 14,
+  "developer_share_pct": 100
+ },
+ "corporate_tax": {
+  "enabled": true,
+  "local_surtax_pct": 10,
+  "brackets": [
+   {
+    "up_to": 200000000,
+    "rate_pct": 10
+   },
+   {
+    "up_to": 20000000000,
+    "rate_pct": 20
+   },
+   {
+    "up_to": 300000000000,
+    "rate_pct": 22
+   },
+   {
+    "up_to": null,
+    "rate_pct": 25
+   }
+  ]
+ },
+ "schedule": {
+  "enabled": true,
+  "start_month": "2027-01",
+  "land_contract_pct": 10,
+  "land_balance_month": 3,
+  "construction_start_month": 8,
+  "construction_months": 24,
+  "curve": "s_curve",
+  "payment_lag_months": 1,
+  "retention_pct": 0,
+  "sales_start_month": 6,
+  "initial_sales_share_pct": 50,
+  "sales_period_months": 18,
+  "deposit_pct": 10,
+  "midpay_pct": 50,
+  "midpay_installments": 5,
+  "move_in_lag_months": 1,
+  "sweep_pct": 0,
+  "minimum_cash": 0,
+  "discount_rate_pct": 8,
+  "vat_settlement": true,
+  "corporate_tax_by_progress": true,
+  "sme": false
+ },
+ "site": {
+  "province": "경기도",
+  "municipality": "안양시",
+  "zones": [
+   {
+    "zone": "준주거지역",
+    "area_sqm": 1500
+   }
+  ],
+  "incentive_far_pct": 0,
+  "building_area_sqm": null,
+  "plan_parking": null,
+  "parking_area_per_space": 33,
+  "flags": [],
+  "parcels": [],
+  "address": "",
+  "plan": {
+   "kind": "none"
+  }
+ },
+ "criteria": {
+  "margin_min_pct": 12,
+  "margin_warn_pct": 5,
+  "bep_max_pct": 75,
+  "bep_warn_pct": 90,
+  "price_drop_min_pct": 10,
+  "equity_irr_min_pct": 15,
+  "ltc_max_pct": 85
+ },
+ "_template": {
+  "key": "officetel",
+  "title": "오피스텔",
+  "desc": "준주거지역 소형 오피스텔 + 1층 근생 · 전부 부가세 과세 · 학교용지·광역교통 부담금 없음 · 중도금 이자후불제",
+  "note": "분양가는 매출이익률 약 14%가 되도록 맞춘 예시값입니다. 토지가·분양가·공사비를 시세와 견적으로 반드시 바꾸세요."
+ }
+}
